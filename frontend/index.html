@@ -305,44 +305,31 @@ th{color:var(--muted);font-weight:500;font-size:.8rem}
 <!-- SPEC -->
 <section id="spec" hidden>
   <div class="panel spec">
-    <div class="panel-head"><h2>Specification-driven build record</h2><small>the spec this console was built from</small></div>
+    <div class="panel-head"><h2>Specification-driven build record</h2><small>how this console was specified, built, verified and documented</small></div>
 
-    <h3>1 · Specification</h3>
-    <p><b>Problem.</b> Hall 2 operators react to alarms one metric at a time; thermal and power events are spotted late and root cause takes hours.</p>
-    <p><b>Goal.</b> A web console that detects anomalies across racks, correlates them to a probable cause, and proposes a remediation the operator can approve in one tap.</p>
-    <p><b>User stories</b></p>
-    <ul>
-      <li>As a NOC engineer I see hall health at a glance so I know where to look first.</li>
-      <li>As a NOC engineer I get an incident with a probable root cause and confidence, not just a threshold alarm.</li>
-      <li>As a shift lead I approve an automated runbook and watch it execute step by step.</li>
-      <li>As a capacity planner I see when power will reach 80 % of design so I can order ahead.</li>
-    </ul>
-    <p><b>Acceptance criteria</b></p>
-    <ul>
-      <li>AC-1 Anomaly flagged within 3 samples when a metric exceeds 3 σ of its rolling baseline.</li>
-      <li>AC-2 ≥ 3 thermal anomalies in one zone are merged into a single CRAC incident.</li>
-      <li>AC-3 Runbooks require explicit approval; no auto-execution.</li>
-      <li>AC-4 Incident auto-resolves after 5 consecutive normal samples.</li>
-      <li>AC-5 Works on a phone (≥ 360 px) and respects system light/dark theme.</li>
-    </ul>
+    <h3>1 · Specification (Weekend 3)</h3>
+    <p><b>Goal.</b> A NOC engineer sees one correlated incident with a probable cause and approves a runbook in one tap, instead of reading 24 rack alarms. Built for a private, single-tenant hall: 4 zones, 24 racks, 1,200 kW.</p>
+    <p><b>Four specs</b> in <code>specs/</code>: goal · frontend · backend · api-contract, plus an implementation plan (phases 0–9, each with completion evidence). <b>Fifth spec</b> <code>AI-spec.md</code>: free-text triage, one bounded model call that proposes; only the operator's confirm writes.</p>
+    <p><b>Success criterion.</b> Inject a CRAC failure in Zone C → within 6 s exactly one incident for Zone C naming CRAC-3 → approve Cooling failover → resolves after five normal samples.</p>
 
     <h3>2 · Planning</h3>
-    <div class="stage"><span class="n">a</span><p>Decompose: telemetry simulator → rolling-stats anomaly detector → zone correlator → incident manager → runbook executor → UI.</p></div>
-    <div class="stage"><span class="n">b</span><p>Tools: single self-contained HTML, Chart.js for time series, no backend (telemetry is simulated in-page; swap <code>tick()</code> for a WebSocket feed from Prometheus/SNMP/DCIM).</p></div>
-    <div class="stage"><span class="n">c</span><p>Execution: build the data layer first, then detection, then UI; verify each AC with an injected fault.</p></div>
+    <div class="stage"><span class="n">a</span><p>Data layer → z-score detector (window 20, ceilings 27 °C / 92 %) → zone correlator (≥ 3 hot racks = one CRAC incident) → incident manager → approval-gated runbooks → UI.</p></div>
+    <div class="stage"><span class="n">b</span><p>Minimal viable agent for triage: a single structured-output call, no tools, no loop; revisit only with evaluation evidence.</p></div>
+    <div class="stage"><span class="n">c</span><p>Architecture described per ISO/IEC/IEEE 42010: C4 views, UML runtime and deployment views, 12 ADRs, OpenAPI contract, STRIDE threat model.</p></div>
 
     <h3>3 · Coding &amp; iteration</h3>
-    <p style="color:var(--muted)">Three injectable faults exercise every path: CRAC failure (correlation), runaway process (single-rack CPU), PSU loss (offline detection). Use the “Inject fault” control in the header.</p>
+    <p style="color:var(--muted)">Backend: FastAPI, telemetry adapters (simulator, Prometheus), OIDC, incident API with timeline, ServiceNow/Jira sync, <code>/ai/triage</code> with rate limit, budget and OpenTelemetry tracing. Eleven spec-versus-code conflicts raised by the coding agent were resolved by amending the documents before the code.</p>
 
-    <h3>4 · Review &amp; validate</h3>
+    <h3>4 · Review &amp; validate (Weekends 4–5)</h3>
     <ul>
-      <li>Security: no external calls, no stored credentials, runbooks are approval-gated.</li>
-      <li>Performance: 24 racks × 3 metrics at 0.5 Hz; charts update in place.</li>
-      <li>Compliance: all actions are logged in the incident timeline.</li>
+      <li><code>scripts/verify.sh</code> is the definition of done: ruff · 78 tests (API contract, ticketing lifecycle, AI-1…AI-8, OBS-1…OBS-3, no write path from the AI module) · mocked evals 8/8 · CDN hosts.</li>
+      <li>Test the test: three deliberate faults, each turned a check red and green again.</li>
+      <li>Observability demonstrated against a running Phoenix: 8 traces with the specified spans; incident.save linked to its triage request.</li>
+      <li>Golden set T1–T8, codebook, judge rubric; live model baseline pending budget approval.</li>
     </ul>
 
-    <h3>5 · Deployment</h3>
-    <p style="color:var(--muted)">Published as a hosted page. Next: connect real telemetry, add SSO, persist incidents to a ticketing system (ServiceNow/Jira), and route approvals to on-call.</p>
+    <h3>5 · Deployment (Weekend 4) and production (rollout guide)</h3>
+    <p style="color:var(--muted)">CI on every push; deploy via GitHub OIDC → ECR → migration task → ECS Fargate → smoke; Terraform for the AWS stack; backup before destroy with a restore-proof script. Production: five-phase rollout (replay → shadow → one zone → full hall → steady state), go-live checklist, integrations and security architecture, monitoring the monitor. This page runs on the simulator; use <b>Inject fault</b> to exercise it. Source, specs and evidence: <a href="https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops" target="_blank" rel="noopener">github.com/vaidkamal/Agentic-AI-Coding-dc-aiops</a>.</p>
   </div>
 </section>
 </main>

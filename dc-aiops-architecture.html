@@ -67,6 +67,20 @@ code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size
   </div>
 </header>
 
+<h2>Level 0: standards and notations</h2>
+<p>Described per ISO/IEC/IEEE 42010 (stakeholders, concerns, viewpoints, views). Structural views follow the C4 model; runtime and deployment views are UML sequence and deployment diagrams; decisions are Architecture Decision Records with a revisit trigger; the interface contract is OpenAPI 3 (generated at <code>/docs</code>) with the human-readable contract in <code>api-contract-spec.md</code>; threats are modelled with STRIDE; traces follow OpenTelemetry conventions; configuration follows the Twelve-Factor App; thermal thresholds follow ASHRAE TC 9.9 class A1; quality attributes use ISO/IEC 25010 vocabulary.</p>
+<div class="tbl"><table>
+  <thead><tr><th>Viewpoint</th><th>Stakeholder</th><th>Where</th></tr></thead>
+  <tbody>
+    <tr><td>Context</td><td>Operators, facilities</td><td>Level 1 below</td></tr>
+    <tr><td>Containers and components</td><td>Developers, reviewers</td><td>Levels 2–3</td></tr>
+    <tr><td>Runtime (request paths)</td><td>Operators, security reviewer</td><td>The two complete requests</td></tr>
+    <tr><td>Deployment</td><td>Platform team</td><td>Deployment view</td></tr>
+    <tr><td>Security (STRIDE)</td><td>Security reviewer</td><td>Security view below; full model in <code>deploy/integration-security-architecture.md</code></td></tr>
+    <tr><td>Decisions (ADRs)</td><td>Architect, interviewer</td><td><code>docs/design-decisions.md</code></td></tr>
+  </tbody>
+</table></div>
+
 <h2>Level 1: context</h2>
 <p>Who uses the system and which external services it depends on.</p>
 <div class="diagram">
@@ -234,6 +248,21 @@ code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size
   </tbody>
 </table></div>
 
+<h2>Security view (STRIDE summary)</h2>
+<div class="tbl"><table>
+  <thead><tr><th>Threat</th><th>Control</th></tr></thead>
+  <tbody>
+    <tr><td>Spoofing an operator</td><td>OIDC with PKCE; RS256 JWT validated against the IdP JWKS; no local accounts; dev auth refused in production</td></tr>
+    <tr><td>Tampering with telemetry or the write path</td><td>Management-network isolation; snapshot schema validation; no import path from the AI module to the incident router (tested)</td></tr>
+    <tr><td>Prompt injection</td><td>Operator text placed as data; rules in the system prompt; post-validation; golden case T8</td></tr>
+    <tr><td>Repudiation</td><td>Append-only timeline with actor; ticket work notes; traces with request id</td></tr>
+    <tr><td>Information disclosure</td><td>Key and bearer redacted in spans; identity hashed; TLS everywhere; secrets in a secret manager</td></tr>
+    <tr><td>Denial of service</td><td>Per-user rate limit, monthly budget, input caps, WAF</td></tr>
+    <tr><td>Elevation of privilege</td><td>Shift-lead role required to approve; no actuation endpoint exists; firewall denies BMS/PDU</td></tr>
+  </tbody>
+</table></div>
+<p>Integrations (Prometheus, identity provider, ServiceNow, Jira, model API, PostgreSQL), pipeline security checks, production monitoring and incident response for the system itself: <a href="https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops/blob/main/deploy/integration-security-architecture.md" target="_blank" rel="noopener">deploy/integration-security-architecture.md</a>.</p>
+
 <h2>Deployment view</h2>
 <div class="flow">
   <div><b>Vercel / static</b><span>console file (or served by the backend)</span></div>
@@ -245,7 +274,7 @@ code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size
 </div>
 <p>Restore proof: after snapshot → destroy → rebuild, <code>GET /api/incidents</code> returns the same <code>INC-nnn</code> with its original <code>opened</code> timestamp.</p>
 
-<p class="foot">Built with a spec-driven workflow: specs/ → specs_with_AI_feature/ → specs_with_AI_Evals/. Decisions are recorded as ADRs in docs/design-decisions.md.</p>
+<p class="foot">Built with a spec-driven workflow: specs/ → specs_with_AI_feature/ → specs_with_AI_Evals/. Standards: ISO 42010 · C4 · UML · ADR · OpenAPI · STRIDE · OpenTelemetry. Decisions are recorded as ADRs in docs/design-decisions.md. Markdown twin with Mermaid diagrams: docs/architecture.md.</p>
 </div>
 
 </body>

@@ -118,12 +118,12 @@ specs/                        goal · frontend · backend · api-contract · imp
 specs_with_AI_feature/        + AI-spec.md (fifth spec); revision-2 sections appended to the four
 specs_with_AI_Evals/          + observability-spec · observability-runbook · ai-implementation-plan
 evals/                        golden/cases.json T1–T8 · run_cases.py (--mock / --live) · codebook · judge rubric · review table · baseline
-backend/                      FastAPI; adapters; auth; integrations; ai/ (triage, budget, ratelimit, tracing); tests/ (78)
+backend/                      FastAPI; adapters; auth; integrations (ServiceNow, Jira); ai/ (triage, budget, ratelimit, tracing); tests/ (78 incl. ticketing lifecycle)
 frontend/index.html           console, including the Triage tab
 scripts/verify.sh             definition of done: ruff · pytest · evals --mock · no-write-path grep · CDN hosts
-deploy/                       Terraform · backup/destroy/restore/demo-tunnel scripts · deployment brief · release runbook
+deploy/                       Terraform · backup/destroy/restore/demo-tunnel scripts · deployment brief · release runbook · production-rollout.md · integration-security-architecture.md
 .github/workflows/            ci.yml · deploy.yml (OIDC → ECR → migration task → ECS → smoke)
-docs/                         design-decisions.md (12 ADRs) · interview-questions.md · OPEN-QUESTIONS.md · test-the-test.md
+docs/                         architecture.md (ISO 42010 · C4 · UML · ADR · STRIDE) · design-decisions.md (12 ADRs) · interview-questions.md · OPEN-QUESTIONS.md · test-the-test.md
 transcripts/                  session log and link to the raw session</code></pre>
 
 <h2 id="decisions">2. The design decisions</h2>
@@ -174,6 +174,13 @@ transcripts/                  session log and link to the raw session</code></pr
 <p><code>destroy.sh</code> takes a manual RDS snapshot and aborts the destroy if the snapshot fails. <code>restore.sh</code> rebuilds from the snapshot, triggers the deploy workflow, and greps the API for a known <code>INC-nnn</code>. Cloudflare Quick Tunnel is the alternative for a temporary demo of the local app.</p>
 <p class="rejected">Rejected: <span>Render/Fly.io</span> (less control over the restore exercise), <span>Kubernetes</span> (more than one hall needs).</p></div></div>
 
+<div class="decision"><div class="k"><b>Architecture described to a standard</b>ISO 42010 viewpoints, C4 views, UML runtime and deployment, ADRs, STRIDE</div><div class="v">
+<p>Every view has a named stakeholder and a place in the repository, so a reviewer can ask "who may write, and where is that shown?" and be pointed to a diagram and a decision record rather than to code. The standards table is §0 of <code>docs/architecture.md</code>; the backend spec names the standard so a change to a view or a decision happens in the documents first.</p>
+<p class="rejected">Rejected: <span>a single hand-drawn overview</span>. It answers "what is it" but not "who is allowed to do what" or "what happens when a dependency is slow or wrong", which are the questions the course asks a design to answer.</p></div></div>
+
+<div class="decision"><div class="k"><b>Third parties connected by contract, never by trust</b>Per-system auth, scope, failure behaviour and firewall rule</div><div class="v">
+<p>Prometheus is read-only on the management network; the identity provider is OIDC with PKCE and JWKS validation; ServiceNow and Jira are reached through the egress proxy with a least-privilege service account, a 10 s timeout, and a failure that is written to the incident timeline and never blocks the operator (tested); the model API is optional, server-side only, and receives sanitised text; BMS and PDU control have no credentials and a denied firewall path.</p></div></div>
+
 <h2 id="tradeoffs">3. Trade-offs I would defend</h2>
 <div class="tradeoff"><h3>Simplicity over sophistication in the models</h3><p>Every analytic can be explained in one sentence and recomputed by hand. In operations, a model nobody trusts is a model nobody uses. Heavier methods can replace them behind the same incident contract once there is history to train on.</p></div>
 <div class="tradeoff"><h3>Minimal viable agent for the AI feature</h3><p>A single call with structured output solves the task the spec describes. Adding a tool or a loop without evaluation evidence would be complexity without a reason, and it would widen the authority surface I have deliberately kept at zero.</p></div>
@@ -185,6 +192,8 @@ transcripts/                  session log and link to the raw session</code></pr
   <tbody>
     <tr><td>Goal-spec success criterion (CRAC failure → one Zone C incident → approve → resolve)</td><td>Inject fault; manual walk-through</td><td>One incident, confidence 91 %, resolved after 5 normal samples</td></tr>
     <tr><td>API contract (201/409/404/409-on-resolved/401, enums → 422)</td><td><code>pytest tests/test_api.py</code></td><td>9 passed</td></tr>
+    <tr><td>Ticketing lifecycle (ServiceNow, Jira): create → work note with actor → close; a ticketing failure never blocks the operator</td><td><code>pytest tests/test_ticketing.py</code> with stubbed integrations</td><td>5 passed</td></tr>
+    <tr><td>OBS-1…OBS-3 against a running Phoenix</td><td>fake model through the real endpoint, 8 cases + 1 confirm</td><td>8 traces with the specified spans; incident.save linked by request id; no secrets exported</td></tr>
     <tr><td>AI-1…AI-8 (shape, normalisation, classification, injection, bounds, budget, correction, no write path)</td><td><code>pytest tests/test_ai_triage.py</code> with frozen fixtures</td><td>33 passed; mutation on the write path turns it red</td></tr>
     <tr><td>OBS-1…OBS-3 (spans, redaction, tracing status)</td><td><code>pytest tests/test_tracing.py</code> with in-memory exporter</td><td>10 passed</td></tr>
     <tr><td>Golden set T1–T8</td><td><code>python evals/run_cases.py --mock</code></td><td>0 failures / 8 assessed (mocked; live baseline pending budget approval)</td></tr>
@@ -213,6 +222,10 @@ transcripts/                  session log and link to the raw session</code></pr
 
 <div class="qa"><p class="q">What did the agent get wrong, and how did you catch it?</p><div class="a"><p>Three things. The first package shipped without spec files. The workspace was recycled between sessions and the code had to be recreated from the session record, which taught me to commit after every turn. And the builders reported eleven spec-versus-code questions rather than patching around them; each got a decision and the affected documents were updated before the code changed.</p></div></div>
 
+<div class="qa"><p class="q">How is a ticketing outage handled, and how do you know?</p><div class="a"><p>The incident is saved first; the ticket call has a 10 s timeout; on failure the timeline gets a "ticket sync failed" line and the API still returns 201. Five tests in <code>test_ticketing.py</code> drive create, work note and close for ServiceNow and Jira with stubs, including a failing stub on create and on resolve. Ticketing can never block an operator.</p></div></div>
+
+<div class="qa"><p class="q">Which architecture standard did you follow, and why does it matter?</p><div class="a"><p>ISO/IEC/IEEE 42010 for the description, with C4 for structure, UML sequence and deployment views, ADRs for decisions and STRIDE for threats. It matters because each viewpoint has a stakeholder: the security reviewer reads the runtime and STRIDE views, the platform team the deployment view, the interviewer the ADRs. A design that cannot be read by the person who has to approve it is not finished.</p></div></div>
+
 <h2 id="next">6. What remains, honestly</h2>
 <ul>
   <li>T16: persist incidents to PostgreSQL so Phase 7's restore proof can run.</li>
@@ -220,6 +233,7 @@ transcripts/                  session log and link to the raw session</code></pr
   <li>Phases 4–6: Terraform apply and the first deploy run need an AWS account; a Cloudflare tunnel demo is the fallback for the review.</li>
   <li>Hill-climb one failure category with the prompt's rules section as the only movable part; then compare model and effort settings on the same cases.</li>
   <li>CRAC supply-temperature series as direct evidence for the zone rule.</li>
+  <li>Production rollout P1–P5 with the go-live checklist, and the security checks in <code>deploy/integration-security-architecture.md</code> (SAST, dependency and image scans, DAST, penetration test before P4).</li>
 </ul>
 
 <p class="foot">Built October 2026 with an agentic coding harness under the IISc "Agentic AI Coding" method. Console, architecture page, repository and transcript are linked at the top.</p>

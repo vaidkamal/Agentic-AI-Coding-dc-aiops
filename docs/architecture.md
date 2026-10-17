@@ -68,15 +68,15 @@ sequenceDiagram
   participant D as DB + ticket
   A->>B: snapshot (24 racks)
   B->>C: WebSocket push
-  C->>C: z-score per metric; ceilings 27 °C / 92 %
+  C->>C: z-score per metric · ceilings 27 °C / 92 %
   C->>C: ≥ 3 hot racks in a zone → one CRAC incident
   C->>B: POST /api/v1/incidents
-  B->>D: insert; open ticket
+  B->>D: insert · open ticket
   Note over C: operator taps Approve
   C->>B: POST /incidents/{id}/log "approved runbook …" (actor from token)
-  C->>C: steps page people and tools; nothing actuated
+  C->>C: steps page people and tools · nothing actuated
   C->>B: POST /incidents/{id}/resolve after 5 normal samples
-  B->>D: resolved; ticket closed
+  B->>D: resolved · ticket closed
 ```
 
 ## 5. One complete request: free-text triage → saved incident
@@ -95,7 +95,7 @@ sequenceDiagram
   B-->>C: 4 draft, missing_fields, clarification_fields, reply
   Note over C: 5 operator edits and confirms (no model call)
   C->>B: 6 POST /api/v1/incidents (exact reviewed fields, X-Draft-Request-Id)
-  B->>D: 7 insert; open ticket
+  B->>D: 7 insert · open ticket
   B-->>C: 8 201 Incident
 ```
 

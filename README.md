@@ -174,15 +174,15 @@ sequenceDiagram
   participant D as DB + ticket
   A->>B: snapshot (24 racks)
   B->>C: WebSocket push
-  C->>C: z-score per metric; ceilings 27 °C / 92 %
+  C->>C: z-score per metric · ceilings 27 °C / 92 %
   C->>C: ≥ 3 hot racks in a zone → one CRAC incident
   C->>B: POST /api/v1/incidents
-  B->>D: insert; open ticket
+  B->>D: insert · open ticket
   Note over C: operator taps Approve
   C->>B: POST /incidents/{id}/log "approved runbook …" (actor from token)
-  C->>C: steps page people and tools; nothing actuated
+  C->>C: steps page people and tools · nothing actuated
   C->>B: POST /incidents/{id}/resolve after 5 normal samples
-  B->>D: resolved; ticket closed
+  B->>D: resolved · ticket closed
 ```
 
 ### 5.4 Runtime view: free-text triage → saved incident
@@ -200,7 +200,7 @@ sequenceDiagram
   B-->>C: 4 draft, missing_fields, clarification_fields, reply
   Note over C: 5 operator edits and confirms (no model call)
   C->>B: 6 POST /api/v1/incidents (exact reviewed fields, X-Draft-Request-Id)
-  B->>D: 7 insert; open ticket
+  B->>D: 7 insert · open ticket
   B-->>C: 8 201 Incident
 ```
 Steps 1–4 never write. Step 6 is the only write; the model is not called at that step, and a test proves the AI module cannot reach the write path.
@@ -350,7 +350,7 @@ Approve the proposed runbook; when its last step completes the fault clears, met
 | Messages you may see | "Triage unavailable — draft kept" (model unreachable; edit manually); "rate limited" / "budget exhausted" (429; manual path still works); "The save response never arrived — the incident may already exist. Check the Incidents tab before retrying." (never auto-retried); "Restored an unfinished draft. Review it before confirming." (after a reload); on GitHub Pages: "No backend reachable (published demo). Use Edit manually." |
 | What the model can never do | Open, approve or resolve anything. Only Confirm writes, and it sends the exact reviewed fields plus a header linking the save to the model's request id for the audit trace |
 
-**Spec tab.** Read-only: the original problem, goal, user stories, acceptance criteria and the five-stage plan the console was first built from. For auditors; nothing to operate.
+**Spec tab.** Read-only build record: goal and the private-hall setting, the four specs plus AI-spec, the success criterion, the plan (detector → correlator → runbooks; minimal viable agent; architecture standard), coding and the eleven resolved conflicts, verification (78 tests, test-the-test, Phoenix, golden set), deployment and the production rollout, with a link to the repository. For auditors; nothing to operate.
 
 **Notifications (toasts).** Short messages at the bottom of the screen: "Fault injected: …", "INC-nnn opened: …", "Running <runbook>", "INC-nnn acknowledged", "INC-nnn resolved", "INC-nnn opened from triage", "Live telemetry connected", "Feed lost — using simulator", "Triage unavailable — draft kept".
 
@@ -359,16 +359,16 @@ Approve the proposed runbook; when its last step completes the fault clears, met
 **Walk-through for a first-time user (two minutes).** Overview → Inject fault → "CRAC unit failure (Zone C)" → watch Zone C tiles turn orange then red → Incidents badge shows 1 → open it, read the cause ("CRAC-3 is the only shared cooling dependency…") → Approve runbook → steps tick → tiles cool → incident moves to Resolved → expand Timeline. Then open Triage and type a symptom.
 
 ### 7.2 The session transcript, turn by turn — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_turn_by_turn.html
-**Purpose.** The course asks for an export of the turn-by-turn conversation so a reviewer can see how the project was built, not only what came out. This page lists all 41 architect messages verbatim, in order, across the two sessions (7 and 17 October 2026); under each one the harness's response is condensed to what was decided, built and delivered, with the files produced. Attached images and PDFs are described in brackets. Blue = architect, green = harness. The raw harness session (sign-in required) is linked at the top for anyone who wants the unedited record.
+**Purpose.** The course asks for an export of the turn-by-turn conversation so a reviewer can see how the project was built, not only what came out. This page lists all 50 architect messages verbatim, in order, across the two sessions (7 and 17 October 2026); under each one the harness's response is condensed to what was decided, built and delivered, with the files produced. Attached images and PDFs are described in brackets. Blue = architect, green = harness. The raw harness session (sign-in required) is linked at the top for anyone who wants the unedited record.
 
 ### 7.2a The session log, by stage — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_session_log.html
-**Purpose.** The same work grouped into the course's stages rather than by message, for a reader who wants the shape of the build without the back-and-forth. Colour-coded: blue = architect instruction, green = what the harness produced, amber = a review or an incident. It records: the first specification and console (turn 1); backend, adapters and integrations (turn 2); the review that found the spec living only inside the app and the spec files that followed (turn 3); the submission form (turn 4); and the rebuild to the trainer's method (turn 5): the six-weekend extraction, the four specs, the fifth AI spec, the evals-stage documents, the workspace-recycling incident and the lesson "commit after every turn", the two parallel builders, and the eleven conflicts they reported with the decision taken on each.
+**Purpose.** The same work grouped into the course's stages rather than by message, for a reader who wants the shape of the build without the back-and-forth. Colour-coded: blue = architect instruction, green = what the harness produced, amber = a review or an incident. It records: the first specification and console (turn 1); backend, adapters and integrations (turn 2); the review that found the spec living only inside the app and the spec files that followed (turn 3); the submission form (turn 4); the rebuild to the trainer's method (turn 5): the six-weekend extraction, the four specs, the fifth AI spec, the evals-stage documents, the workspace-recycling incident and the lesson "commit after every turn", the two parallel builders, and the eleven conflicts they reported with the decision taken on each; and the documentation-to-production stage (turn 6): user guide, rollout guide, integration and security architecture, architecture standards, Phoenix evidence, ticketing tests, and the final audit.
 
 ### 7.3 The design-decision walkthrough — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/docs/dc-aiops-design-walkthrough.html
-**Purpose.** The course's "design decision walkthrough and interview preparation": why the system is the way it is, and the questions I prepared to answer without opening the code. Sections: (1) how the project was built, weekend by weekend, with the repository layout; (2) the design decisions, each with what was chosen, what was rejected and why (detection method, correlate-before-alarm, approval gate, explainable incidents, detection in the browser, one telemetry contract, announced feed loss, one bounded model call, model-proposes/application-saves, limits in code, observability, golden set first, deployment with recovery proof); (3) three trade-offs I would defend; (4) how it was verified, criterion by criterion; (5) interview preparation: the eight questions I expect most, with answers; (6) what remains, honestly. The full decision records with revisit-when conditions are `docs/design-decisions.md`; the 25 interview questions are `docs/interview-questions.md`.
+**Purpose.** The course's "design decision walkthrough and interview preparation": why the system is the way it is, and the questions I prepared to answer without opening the code. Sections: (1) how the project was built, weekend by weekend, with the repository layout; (2) the design decisions, each with what was chosen, what was rejected and why (detection method, correlate-before-alarm, approval gate, explainable incidents, detection in the browser, one telemetry contract, announced feed loss, one bounded model call, model-proposes/application-saves, limits in code, observability, golden set first, deployment with recovery proof, architecture described to a standard, third parties connected by contract); (3) three trade-offs I would defend; (4) how it was verified, criterion by criterion, including the ticketing lifecycle and the Phoenix run; (5) interview preparation: the ten questions I expect most, with answers; (6) what remains, honestly. The full decision records with revisit-when conditions are `docs/design-decisions.md`; the 25 interview questions are `docs/interview-questions.md`.
 
 ### 7.4 The architecture page — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/dc-aiops-architecture.html
-C4 context, containers and components; the two request paths (telemetry → runbook, free-text → incident); the testable failure table; who may do what; where authoritative information lives; the deployment view. Markdown twin: `docs/architecture.md`.
+**Purpose.** The architecture description for reviewers, per ISO/IEC/IEEE 42010. Sections: Level 0 standards and notations with the viewpoint-to-stakeholder table; C4 context, containers and components; the two request paths as runtime views (telemetry → runbook, free-text → incident); the testable failure table (situation, required behaviour, enforcing component, exposing test); the authority table (who may do what, enforced where); where authoritative information lives; the security view (STRIDE summary with a link to the full integration and security document); the deployment view. Markdown twin with Mermaid diagrams: `docs/architecture.md`.
 
 ## 8. Verification evidence
 
