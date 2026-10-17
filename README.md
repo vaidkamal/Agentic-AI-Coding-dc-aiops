@@ -109,7 +109,44 @@ Deployment: `deploy/deployment-brief.md` (services, permissions, cost drivers, w
 
 Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, what the DC must provide, configuration, on-prem and AWS profiles, five-phase rollout with exit criteria, go-live checklist).
 
-## 7. Verification evidence
+## 7. User guide: the three published pages
+
+### 7.1 The console — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/frontend/
+**Purpose.** The operator's single screen for one hall: see where the problem is, get one incident per cause, approve the fix, watch it resolve. On GitHub Pages it runs on the built-in simulator (24 racks, randomised telemetry); with the backend it shows live data. Everything below works identically in both.
+
+| Element | What it shows | What you do with it |
+|---|---|---|
+| **Header** | Hall name, capacity, live clock | **Inject fault** menu: CRAC unit failure (Zone C), runaway process (B-04), PSU feed loss (D-02). This is how you exercise the system on simulated data; it is not used on live equipment. |
+| **KPI row** | IT load (kW and % of 1,200 kW design), PUE against the 1.50 target, average inlet temperature vs ASHRAE A1, servers online, open incidents | Read at a glance; red/green sub-labels say whether each is inside its target. |
+| **Rack floor** | 4 zones × 6 racks, each tile coloured by inlet temperature (blue < 20 °C … red > 30 °C), offline racks greyed | Tap a rack to open its time series. A hot zone is visible before you read a number. |
+| **Rack panel** | Inlet temperature and CPU for the selected rack over the last 20 samples; servers, power, CPU | Confirm whether one rack or a whole zone is rising. |
+| **AI insights** | One line per open incident with its probable cause; the warmest rack when nothing is open; a warning when power will reach 80 % of design within 60 days | Decide where to look first. |
+| **Site chart** | IT load and PUE over the last two minutes | Spot a hall-wide drift. |
+
+**Incidents tab.** Open incidents first (critical on top, left stripe by severity), resolved below. Each card: id, title, severity pill, opened/closed time, evidence line, **probable cause with confidence** (a rule constant, e.g. 91 % for a zone-wide rise), then two buttons. **Approve runbook: <name>** starts the catalogued steps; they tick off one by one and every step is logged with your name. **Acknowledge** records that you have seen it. The incident resolves itself after five consecutive normal samples; the ticket closes. Expand **Timeline** to see open → acknowledged → approved → steps → resolved with timestamps. Nothing runs without Approve, and no step actuates equipment: steps page people and tools.
+
+**Capacity tab.** Power used, rack space used, days to the 80 % planning line (least-squares regression on the load series), growth per day; the chart shows observed load, a dashed 30-day forecast and the red planning line; the inventory table lists every rack with a status pill (normal / hot / saturated / offline).
+
+**Runbooks tab.** The catalogue: Cooling failover, Contain runaway workload, Restore rack power, Airflow check, each with ordered steps and whether it is currently proposed for an open incident.
+
+**Ops copilot tab.** Type a question (hottest rack, PUE, power forecast, open incidents, CPU, offline racks, what to do next) or tap a chip; answers are computed from the live state, not from a language model, so they cannot invent a rack.
+
+**Triage tab (AI feature).** Describe what you see in plain English or Latin-script Hinglish ("C-01, C-03 and C-05 all at 29 °C since 14:10, CRAC-3 compressor alarm"). The model drafts kind, key, severity, runbook, summary and probable cause; fields it could not resolve are highlighted and listed as *missing* or *needs clarification*. Edit any field. **Confirm and open incident** is enabled only when kind, key and severity are set and you have reviewed the draft; it creates the incident exactly as shown. **Edit manually** lets you open an incident without the model; **Start over** clears the draft. If the model is unavailable or over budget, the draft is kept and manual entry still works. On GitHub Pages there is no backend, so Send reports "no backend reachable" and manual entry is the path. The model never writes anything; only your Confirm does.
+
+**Spec tab.** The original specification record (goal, plan, acceptance criteria) for anyone auditing what the console was built to do.
+
+**Walk-through for a first-time user (two minutes).** Overview → Inject fault → "CRAC unit failure (Zone C)" → watch Zone C tiles turn orange then red → Incidents badge shows 1 → open it, read the cause ("CRAC-3 is the only shared cooling dependency…") → Approve runbook → steps tick → tiles cool → incident moves to Resolved → expand Timeline. Then open Triage and type a symptom.
+
+### 7.2 The session transcript — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_session_log.html
+**Purpose.** The course asks for a transcript of the work so a reviewer can see how the project was built, not only what came out. This page is a structured log of the single build session, turn by turn. Each entry is colour-coded: blue = the architect's instruction, green = what the coding harness produced, amber = a review or an incident. It records: the first specification and console (turn 1); backend, adapters and integrations (turn 2); the review that found the spec living only inside the app and the spec files that followed (turn 3); the submission form (turn 4); and the rebuild to the trainer's method (turn 5): the six-weekend extraction, the four specs, the fifth AI spec, the evals-stage documents, the workspace-recycling incident and the lesson "commit after every turn", the two parallel builders, and the eleven conflicts they reported with the decision taken on each. The raw harness session (sign-in required) is linked at the top for anyone who wants the unedited record.
+
+### 7.3 The design-decision walkthrough — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/docs/dc-aiops-design-walkthrough.html
+**Purpose.** The course's "design decision walkthrough and interview preparation": why the system is the way it is, and the questions I prepared to answer without opening the code. Sections: (1) how the project was built, weekend by weekend, with the repository layout; (2) the design decisions, each with what was chosen, what was rejected and why (detection method, correlate-before-alarm, approval gate, explainable incidents, detection in the browser, one telemetry contract, announced feed loss, one bounded model call, model-proposes/application-saves, limits in code, observability, golden set first, deployment with recovery proof); (3) three trade-offs I would defend; (4) how it was verified, criterion by criterion; (5) interview preparation: the eight questions I expect most, with answers; (6) what remains, honestly. The full decision records with revisit-when conditions are `docs/design-decisions.md`; the 25 interview questions are `docs/interview-questions.md`.
+
+### 7.4 The architecture page — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/dc-aiops-architecture.html
+C4 context, containers and components; the two request paths (telemetry → runbook, free-text → incident); the testable failure table; who may do what; where authoritative information lives; the deployment view. Markdown twin: `docs/architecture.md`.
+
+## 8. Verification evidence
 
 | Requirement | Check | Result |
 |---|---|---|
@@ -119,10 +156,10 @@ Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, 
 | OBS-1…OBS-3 | `pytest tests/test_tracing.py` | 10 passed |
 | Golden set T1–T8 | `python evals/run_cases.py --mock` | 0 failures / 8 assessed (mocked) |
 | Test the test | three deliberate faults | each went red, then green on restore |
-| OBS-1…OBS-3 against a running Phoenix | fake model through the real endpoint, 8 cases + 1 confirm | 8 traces with the specified spans; `incident.save` linked by request id; no secrets exported (§8) |
+| OBS-1…OBS-3 against a running Phoenix | fake model through the real endpoint, 8 cases + 1 confirm | 8 traces with the specified spans; `incident.save` linked by request id; no secrets exported (§9) |
 | Deployment scaffold | `bash -n`, YAML parse, `tofu fmt`, HCL reference check | clean; `terraform validate` and apply pending an AWS account |
 
-## 8. Observability and evaluation: designed, integrated, demonstrated
+## 9. Observability and evaluation: designed, integrated, demonstrated
 
 ### 8.1 Observability (what the system records about itself)
 Specified in [`specs_with_AI_Evals/observability-spec.md`](specs_with_AI_Evals/observability-spec.md), implemented in `backend/ai/tracing.py`, exercised by 10 tests, and **demonstrated against a running Arize Phoenix** on 2026-10-17.
@@ -142,9 +179,9 @@ The course loop: analyse traces → write one note per observation → group int
 | Endpoint run through Phoenix (2026-10-17) | fake client injected into the real backend | 8/8 pass, 9 traces exported | Contract, tracing and the confirm linkage end to end over HTTP |
 | `run_cases.py --live` | real model | **pending** (≈ US$0.06) | The model's behaviour; then open/axial coding on real traces, one hill-climb round, model/effort comparison |
 
-What the fake-model runs do not establish is anything about the real model; the live baseline is item 2 in §10.
+What the fake-model runs do not establish is anything about the real model; the live baseline is item 2 in §11.
 
-## 9. What I learned
+## 10. What I learned
 
 1. **The spec is the contract, and it must be a file.** My first package shipped with the spec living inside a tab of the app. The next engineer could not open it. Nothing was "spec-driven" until `specs/` existed.
 2. **A criterion is a sentence with a command attached.** "Works on mobile" is a hope; "no horizontal scroll at 360 px" and `pytest -k bounds` are criteria. Every acceptance criterion in `AI-spec.md` names its command.
@@ -157,7 +194,7 @@ What the fake-model runs do not establish is anything about the real model; the 
 9. **Commit after every turn.** The cloud workspace was recycled between sessions and the code had to be recreated from the session record. Git is the memory the harness does not have.
 10. **Keep ownership.** I can explain the request path, who may change data, what happens when the provider is slow or wrong, and why each choice was made. That, not the line count, is what the agentic workflow delivers.
 
-## 10. What remains
+## 11. What remains
 
 Everything above this line has evidence; everything below has a plan and a named blocker.
 
@@ -170,7 +207,7 @@ Everything above this line has evidence; everything below has a plan and a named
 
 Items 1 and 4 need only code; items 2 and 3 need the API key and the AWS account.
 
-## 11. Production rollout: from POC to a live hall
+## 12. Production rollout: from POC to a live hall
 
 Full guide: [`deploy/production-rollout.md`](deploy/production-rollout.md). The POC proves the design and the method; the steps below are how to earn the evidence in a real data centre, one bounded step at a time. The rule throughout: **observe and advise before paging anyone; never actuate equipment.**
 
@@ -209,7 +246,7 @@ Rollback at any phase: `TICKETING=none`, runbooks off, console read-only. Nothin
 ### 10.6 Go-live checklist (P4)
 T16 live and one restore drill passed · detector server-side · RBAC verified with a test user · ticketing verified against the site instance · CRAC telemetry wired or deferred with the lower confidence documented · thresholds tuned on replay data · runbook steps mapped to real notifications, no actuation · security review signed · owner named · specs updated for every decision.
 
-## 12. Tools
+## 13. Tools
 
 | Tool | Role in the project | Where |
 |---|---|---|
