@@ -120,7 +120,7 @@ Three snapshots, as in the course reference project: each stage keeps the previo
 | **Decisions and audits** | [`docs/design-decisions.md`](docs/design-decisions.md) · [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) · [`docs/test-the-test.md`](docs/test-the-test.md) · [`docs/interview-questions.md`](docs/interview-questions.md) | 12 ADRs; the 11 spec-vs-code conflicts and the decision on each; the three deliberate faults; 25 questions |
 | **Architecture and operations** | [`docs/architecture.md`](docs/architecture.md) · [`deploy/deployment-brief.md`](deploy/deployment-brief.md) · [`deploy/runbook-release.md`](deploy/runbook-release.md) · [`deploy/production-rollout.md`](deploy/production-rollout.md) · [`deploy/integration-security-architecture.md`](deploy/integration-security-architecture.md) | C4 and request paths; services, cost and recovery; release steps; phased rollout; integrations, threat model, checks, monitoring |
 | **Evaluation** | [`evals/codebook.md`](evals/codebook.md) · [`evals/judge_rubric.md`](evals/judge_rubric.md) · [`evals/review-table.md`](evals/review-table.md) · [`evals/baseline.md`](evals/baseline.md) | Failure categories; judge prompt; open-coding table; mocked and Phoenix-run baselines |
-| **Transcripts** | [`transcripts/README.md`](transcripts/README.md) | Turn-by-turn export, stage log, and the mapping to the trainer's transcript files |
+| **Transcripts** | [`transcripts/README.md`](transcripts/README.md) | Turn-by-turn export, stage log, and where each phase lives in the repo |
 
 ## 5. Architecture
 
