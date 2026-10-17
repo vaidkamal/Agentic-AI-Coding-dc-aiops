@@ -11,8 +11,8 @@ The trainer's reference project ships four HTML transcripts (spec session, Codex
 Stage mapping to the trainer's files:
 | Trainer file | This project |
 |---|---|
-| musafir_transcript.html (four specs, core app) | session turns 1–3 + `specs/` |
-| musafir_codex_transcript.html (AI feature) | session turn 7 (AI-spec, triage endpoint, Triage tab) + `specs_with_AI_feature/` |
-| musafir_eval_transcript.html | session turn 7 (observability spec/runbook, golden set, evals harness) + `specs_with_AI_Evals/`, `evals/` |
-| musafir_deploy_part2.html | session turn 7 (Terraform, workflows, backup/restore) + `deploy/` |
+| musafir_transcript.html (four specs, core app) | session-log stages 1–3 and 5 + `specs/` |
+| musafir_codex_transcript.html (AI feature) | session-log stage 5 / turn 5 (AI-spec, triage endpoint, Triage tab) + `specs_with_AI_feature/` |
+| musafir_eval_transcript.html | session-log stages 5–6 (observability spec/runbook, golden set, evals harness, Phoenix run) + `specs_with_AI_Evals/`, `evals/` |
+| musafir_deploy_part2.html | session-log stages 5–6 (Terraform, workflows, backup/restore, production rollout, integration and security architecture) + `deploy/` |
 | musafir-architecture.html | `dc-aiops-architecture.html` (published) |

@@ -2,7 +2,11 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .env
-evals/results/
+evals/results/*
+!evals/results/endpoint-run-mockmodel-20261017.json
+!evals/results/phoenix-traces-mockmodel-20261017.json
+!evals/results/phoenix-traces-20261017.png
+!evals/results/phoenix-trace-detail-20261017.png
 deploy/.last-snapshot
 deploy/terraform/.terraform/
 deploy/terraform/*.tfstate*

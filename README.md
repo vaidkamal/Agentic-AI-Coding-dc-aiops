@@ -236,6 +236,75 @@ flowchart LR
 | Information disclosure | Key and bearer redacted in spans; identity hashed; TLS everywhere; secrets in a secret manager |
 | Denial of service | Per-user rate limit, monthly budget, input caps, WAF |
 | Elevation of privilege | `dc-shift-lead` required to approve; no actuation endpoint exists; firewall denies BMS/PDU |
+```mermaid
+flowchart LR
+  subgraph CORP["Corporate network / VPN"]
+    OPS[Operator browser<br/>SSO + MFA at the IdP]
+  end
+  subgraph MGMT["Management network · deny-by-default firewall"]
+    RP[Reverse proxy<br/>TLS 1.2+ · HSTS · WAF · CSP · rate rules]
+    BE[Backend<br/>JWT validation · RBAC · Pydantic validation · input caps]
+    AI[AI module<br/>no import path to writes · bounded call · post-validation]
+    PG[(PostgreSQL<br/>TLS verify-full · encrypted at rest · least-privilege roles · append-only events)]
+    SM[Secret manager<br/>DB · ticketing · model key · rotated 90 d]
+    PROM[Prometheus<br/>read-only · SNMPv3 exporters]
+    OTEL[OTel → Phoenix / Tempo<br/>key and bearer redacted · identity hashed]
+  end
+  subgraph EXT["External · via egress proxy allow-list"]
+    IDP[Identity provider]
+    TKT[ServiceNow / Jira<br/>least-privilege service account]
+    LLM[Model API<br/>optional · sanitised text only]
+  end
+  BMS[BMS / PDU control]
+  OPS -->|HTTPS 443| RP --> BE
+  BE --> AI
+  BE --> PG
+  BE --> PROM
+  BE --> OTEL
+  SM -.->|env at start| BE
+  BE -->|JWKS| IDP
+  BE --> TKT
+  AI -. only if key set .-> LLM
+  BE -. no credentials · firewall deny .-> BMS
+  AI -. tested: cannot reach .-> PG
+```
+**Where each STRIDE control sits:** spoofing is stopped at the IdP and the backend's JWT check; tampering at the firewall, the schema validation and the AI module's isolation; prompt injection inside the AI module (text as data, post-validation); repudiation by the append-only events and traces; disclosure by TLS, redaction, hashing and the secret manager; denial of service at the proxy and the rate/budget limiters; elevation of privilege by RBAC and the absence of any actuation path.
+
+```mermaid
+flowchart LR
+  subgraph CI["Pipeline checks · every push unless noted"]
+    direction LR
+    L[ruff] --> T[pytest 78] --> E[evals --mock] --> G[no-write-path grep]
+    G --> S1[SAST<br/>Bandit · Semgrep · CodeQL] --> S2[Dependencies<br/>pip-audit · Dependabot] --> S3[Secrets<br/>gitleaks] --> S4[Image<br/>Trivy] --> S5[IaC<br/>tfsec · Checkov] --> S6[SBOM + sign<br/>Syft · Cosign]
+  end
+  S6 -->|tagged release only| DEP[Deploy via GitHub OIDC<br/>ECR → migration task → ECS → smoke]
+  DEP --> PRE[Pre-release · staging<br/>DAST ZAP · live golden set · DB restore drill]
+  PRE --> P4[Before P4 · annual<br/>penetration test · config review]
+```
+
+```mermaid
+flowchart TB
+  subgraph SIG["Signals from the running system"]
+    H[/healthz · liveness · db · tracing]
+    F[snapshot age · racks reporting per zone]
+    I[incidents opened / resolved · open > 2 h]
+    K[ticket sync failures]
+    D[DB connections · replication lag · backup age]
+    M[AI calls · 429/503 rate · p95 latency · spend]
+    Q[weekly trace sample · golden-set live run]
+    LG[structured logs · auth failures]
+    SE[WAF blocks · egress denials · IdP sign-ins]
+    DR[terraform plan nightly]
+    CX[cost · cert and secret expiry]
+  end
+  H & F & I & K & D & M --> PM[Prometheus + Alertmanager → Grafana]
+  Q --> PHX[Phoenix annotations]
+  LG --> LOKI[Loki / ELK]
+  SE --> SIEM[SIEM · Wazuh / Splunk / Sentinel]
+  DR & CX --> OPSB[Ops board]
+  PM & SIEM -->|page, independent of the console| OWNER[Owner / on-call]
+```
+
 Full threat model, controls by layer, pipeline checks and monitoring: [`deploy/integration-security-architecture.md`](deploy/integration-security-architecture.md).
 
 **Authority in one sentence.** Any authenticated operator may open, note and resolve; approving a runbook is logged with the actor (role restriction planned for production); nobody, human or model, can actuate cooling or power, because no such endpoint exists.
