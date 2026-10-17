@@ -13,6 +13,14 @@ Final project for *Agentic AI Coding: From Specification to Deployment* (Prof. D
 | Architecture (C4, request paths, failure table) | https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/dc-aiops-architecture.html |
 | Source code | https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops |
 
+All pages are served by GitHub Pages from this repository (`Settings → Pages → main / root`).
+
+## Abstract
+
+DC-North AIOps is a web console for one data-centre hall (4 zones, 24 racks, 1,200 kW design power) that turns raw rack telemetry into one correlated incident per root cause, with a probable cause, evidence and a confidence number, and a runbook the operator approves in a single tap. It is the final project for "Agentic AI Coding: From Specification to Deployment" and was built with the course's method, with me as architect and the coding harness as contractor. Weekend 2: specification-driven development (spec → plan → implement → verify → iterate), the four control surfaces, CLAUDE.md, a permission file and scripts/verify.sh as the definition of done. Weekend 3: four reviewed specifications (goal, frontend, backend, API contract) and an implementation plan whose phases 0–9 each name their completion evidence; then a fifth specification, AI-spec.md, for a free-text incident triage feature designed as a minimal viable agent: one bounded model call (20 s, 1,024 tokens, no retries, rate- and budget-limited) that proposes a draft, while only the operator's confirmation writes; a test proves the AI module has no write path. Weekend 4: acceptance criteria mapped to checks (73 pytest tests, each criterion with a command), test-the-test with three deliberate faults, CI on every push, a deploy workflow (GitHub OIDC → ECR → migration task → ECS Fargate → smoke test), Terraform for the AWS stack, and backup-before-destroy with a restore-proof script. Weekend 5: an observability specification and runbook with OpenTelemetry traces demonstrated against a running Arize Phoenix, a golden set of eight cases chosen by dimension, deterministic checks with the course's verdict vocabulary, a codebook and a judge rubric. Weekend 6: C4 architecture with two request paths, a testable failure table and an authority table, twelve architectural decision records and 25 interview questions. Eleven spec-versus-code conflicts raised by the harness were resolved by amending the documents before the code. Open items are stated with their blockers: live model evaluation, cloud apply, database persistence, CRAC telemetry. Code, specifications and evidence: https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops
+
+---
+
 ## 1. The problem and the setting
 
 **Context.** The console is built for a private, single-tenant data-centre hall: Hall 2, 4 zones, 24 racks, 1,200 kW of design power, owned and operated by one organisation. It is not a public-cloud region.
@@ -262,7 +270,7 @@ C4 context, containers and components; the two request paths (telemetry → runb
 
 ## 9. Observability and evaluation: designed, integrated, demonstrated
 
-### 8.1 Observability (what the system records about itself)
+### 9.1 Observability (what the system records about itself)
 Specified in [`specs_with_AI_Evals/observability-spec.md`](specs_with_AI_Evals/observability-spec.md), implemented in `backend/ai/tracing.py`, exercised by 10 tests, and **demonstrated against a running Arize Phoenix** on 2026-10-17.
 
 Every `POST /api/v1/ai/triage` produces one OpenTelemetry trace: `http POST /api/v1/ai/triage` → `budget.reserve` → `anthropic.triage` (model, `prompt_version`, `rules_version`, sanitised input, output draft, token usage) → `triage.validate` (id normalisation, rejection reason) → `budget.settle`. When the operator confirms, a separate `incident.save` trace is linked by `request_id` and records which fields the operator changed. API key and bearer are redacted; operator identity is hashed. With no collector configured, tracing is a no-op and `/healthz` reports `tracing: off` so the gap stays visible.
@@ -271,7 +279,7 @@ Every `POST /api/v1/ai/triage` produces one OpenTelemetry trace: `http POST /api
 
 Evidence from the Phoenix run (`evals/results/`): 8 traces with the spans above; one `incident.save` span with `incident_id=INC-501`, `draft_request_id` = T1's request id, `fields_changed_by_operator=["probable_cause"]`; no secret in any exported attribute (`phoenix-traces-mockmodel-20261017.json`). The run also kept 16 earlier traces whose `error` attribute (`TypeError …`) exposed a mis-built fake client in the launcher while the endpoint correctly answered 503, which is the observability design finding a fault in its own builder.
 
-### 8.2 Evaluation (how the AI feature is judged)
+### 9.2 Evaluation (how the AI feature is judged)
 The course loop: analyse traces → write one note per observation → group into a codebook → turn categories into checks → improve one change at a time. Artefacts: golden set [`evals/golden/cases.json`](evals/golden/cases.json) (T1–T8 chosen by dimension: zone vs rack, typo ids, vague, Hinglish correction, pasted log, below threshold, injection), runner [`evals/run_cases.py`](evals/run_cases.py) (`--mock` free in CI; `--live` prints the estimate and asks for approval), [`codebook.md`](evals/codebook.md) v1, [`judge_rubric.md`](evals/judge_rubric.md) for the two semantic criteria, [`review-table.md`](evals/review-table.md), [`baseline.md`](evals/baseline.md). Verdict vocabulary: pass / fail / unable_to_assess / not_applicable / budget_blocked.
 
 | Run | Model | Result | Establishes |
