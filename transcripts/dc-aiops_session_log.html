@@ -12,7 +12,7 @@ ul{margin:.3rem 0 .3rem 1.2rem}
 small{color:#5B6B85}
 </style></head><body>
 <h1>DC-North AIOps — session log</h1>
-<p><small>Structured record of the build session. Source code: <a href="https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops" target="_blank" rel="noopener">GitHub</a>. Raw harness session (sign-in required): <a href="https://claude.ai/code/session_01B6WBDCn3ZQcBy6jiC5uLRX" target="_blank" rel="noopener">session_01B6WBDCn3ZQcBy6jiC5uLRX</a>. Architect = course participant; Agent = Claude (coding harness). Dates in Europe/Zurich.</small></p>
+<p><small>Structured record of the build, by stage. Source code: <a href="https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops" target="_blank" rel="noopener">GitHub</a>. Architect = course participant; Agent = Claude (coding harness). Dates in Europe/Zurich.</small></p>
 
 <h2>Turn 1 · 2026-10-07 — Specification and first build</h2>
 <div class="turn arch"><div class="who">Architect</div>Shared the course's five-stage diagram (Specification → Planning → Coding &amp; Iteration → Review &amp; Validate → Deployment). Instruction: "As your sr. software engineer using agentic AI, assist code using SDD principle: create data-centre IT-operation web-based AIOps."</div>
@@ -52,11 +52,4 @@ small{color:#5B6B85}
 <li>Smoke token under OIDC needs an IdP-issued credential. Decision: documented in the deployment brief.</li></ul></div>
 <div class="turn agent"><div class="who">Agent — Weekend 6 documents</div><code>docs/design-decisions.md</code> (12 ADRs: context, choice, alternatives, consequences, revisit-when), <code>docs/interview-questions.md</code> (25 questions answerable only by understanding the code), <code>dc-aiops-architecture.html</code> (C4 context/containers/components, two request paths, testable failure table, authority table, source-of-truth table).</div>
 
-<h2>Turn 6 · 2026-10-17 (evening) — Documentation to production standard</h2>
-<div class="turn arch"><div class="who">Architect</div>Series of review questions: what each page is for, every console option, what remains and how to finish it, how third parties and the database are connected, security and monitoring for production, which architecture standard is used, broken diagrams on GitHub.</div>
-<div class="turn agent"><div class="who">Agent</div>
-<ul><li>README: user guide for every tab and control; context and benefits of the private-DC setting; go-live checklist as a table; §4.1 index of all SDD documents; §5 with C4 context and container diagrams, two UML sequence views, deployment view and STRIDE summary; §12.7 integrations, security and monitoring.</li>
-<li>New documents: <code>deploy/production-rollout.md</code>, <code>deploy/integration-security-architecture.md</code>, <code>docs/architecture.md</code> with §0 standards (ISO 42010, C4, UML, ADR, OpenAPI, STRIDE, OpenTelemetry, Twelve-Factor, ASHRAE, ISO 25010); backend-spec §0 names the standard in all three stages.</li>
-<li>Evidence: Phoenix run with 8 traces and a linked incident.save; <code>test_ticketing.py</code> (5 tests) for ServiceNow and Jira; suite 78 green.</li></ul></div>
-<div class="turn review"><div class="who">Review</div>Audit of all 34 Markdown files: no broken links; Abstract section had been lost in a rewrite and was restored; subsection numbering and stale test counts corrected; Mermaid parse errors (semicolons) fixed; all five published pages brought up to date with the README.</div>
 </body></html>

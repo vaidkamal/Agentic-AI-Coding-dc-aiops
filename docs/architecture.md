@@ -25,10 +25,10 @@ Views and viewpoints (ISO 42010 mapping): *Context view* for the operator and fa
 
 ```mermaid
 flowchart LR
-  OP[NOC engineer<br/>shift lead · planner] -->|watches, approves| SYS[DC-North AIOps<br/>console + backend]
-  PROM[Prometheus<br/>node · SNMP PDU · env sensors] -->|telemetry| SYS
-  SYS -->|bearer token validation| IDP[Identity provider<br/>OIDC · JWKS]
-  SYS -->|open · work note · close| TKT[ServiceNow / Jira]
+  OP["NOC engineer<br/>shift lead · planner"] -->|watches, approves| SYS["DC-North AIOps<br/>console + backend"]
+  PROM["Prometheus<br/>node · SNMP PDU · env sensors"] -->|telemetry| SYS
+  SYS -->|bearer token validation| IDP["Identity provider<br/>OIDC · JWKS"]
+  SYS -->|open · work note · close| TKT["ServiceNow / Jira"]
   SYS -->|one call per triage note| LLM[Anthropic model API]
 ```
 
@@ -143,23 +143,23 @@ Threat model and controls: `deploy/integration-security-architecture.md` §4. Th
 ```mermaid
 flowchart LR
   subgraph CORP["Corporate network / VPN"]
-    OPS[Operator browser<br/>SSO + MFA at the IdP]
+    OPS["Operator browser<br/>SSO + MFA at the IdP"]
   end
   subgraph MGMT["Management network · deny-by-default firewall"]
-    RP[Reverse proxy<br/>TLS 1.2+ · HSTS · WAF · CSP · rate rules]
-    BE[Backend<br/>JWT validation · RBAC · Pydantic validation · input caps]
-    AI[AI module<br/>no import path to writes · bounded call · post-validation]
-    PG[(PostgreSQL<br/>TLS verify-full · encrypted at rest · least-privilege roles · append-only events)]
-    SM[Secret manager<br/>DB · ticketing · model key · rotated 90 d]
-    PROM[Prometheus<br/>read-only · SNMPv3 exporters]
-    OTEL[OTel → Phoenix / Tempo<br/>key and bearer redacted · identity hashed]
+    RP["Reverse proxy<br/>TLS 1.2+ · HSTS · WAF · CSP · rate rules"]
+    BE["Backend<br/>JWT validation · RBAC · Pydantic validation · input caps"]
+    AI["AI module<br/>no import path to writes · bounded call · post-validation"]
+    PG[("PostgreSQL<br/>TLS verify-full · encrypted at rest · least-privilege roles · append-only events")]
+    SM["Secret manager<br/>DB · ticketing · model key · rotated 90 d"]
+    PROM["Prometheus<br/>read-only · SNMPv3 exporters"]
+    OTEL["OTel → Phoenix / Tempo<br/>key and bearer redacted · identity hashed"]
   end
   subgraph EXT["External · via egress proxy allow-list"]
     IDP[Identity provider]
-    TKT[ServiceNow / Jira<br/>least-privilege service account]
-    LLM[Model API<br/>optional · sanitised text only]
+    TKT["ServiceNow / Jira<br/>least-privilege service account"]
+    LLM["Model API<br/>optional · sanitised text only"]
   end
-  BMS[BMS / PDU control]
+  BMS["BMS / PDU control"]
   OPS -->|HTTPS 443| RP --> BE
   BE --> AI
   BE --> PG
@@ -179,22 +179,22 @@ flowchart LR
   subgraph CI["Pipeline checks · every push unless noted"]
     direction LR
     L[ruff] --> T[pytest 78] --> E[evals --mock] --> G[no-write-path grep]
-    G --> S1[SAST<br/>Bandit · Semgrep · CodeQL] --> S2[Dependencies<br/>pip-audit · Dependabot] --> S3[Secrets<br/>gitleaks] --> S4[Image<br/>Trivy] --> S5[IaC<br/>tfsec · Checkov] --> S6[SBOM + sign<br/>Syft · Cosign]
+    G --> S1["SAST<br/>Bandit · Semgrep · CodeQL"] --> S2["Dependencies<br/>pip-audit · Dependabot"] --> S3["Secrets<br/>gitleaks"] --> S4["Image<br/>Trivy"] --> S5["IaC<br/>tfsec · Checkov"] --> S6["SBOM + sign<br/>Syft · Cosign"]
   end
-  S6 -->|tagged release only| DEP[Deploy via GitHub OIDC<br/>ECR → migration task → ECS → smoke]
-  DEP --> PRE[Pre-release · staging<br/>DAST ZAP · live golden set · DB restore drill]
-  PRE --> P4[Before P4 · annual<br/>penetration test · config review]
+  S6 -->|tagged release only| DEP["Deploy via GitHub OIDC<br/>ECR → migration task → ECS → smoke"]
+  DEP --> PRE["Pre-release · staging<br/>DAST ZAP · live golden set · DB restore drill"]
+  PRE --> P4["Before P4 · annual<br/>penetration test · config review"]
 ```
 
 ```mermaid
 flowchart TB
   subgraph SIG["Signals from the running system"]
-    H[/healthz · liveness · db · tracing]
+    H["/healthz · liveness · db · tracing"]
     F[snapshot age · racks reporting per zone]
-    I[incidents opened / resolved · open > 2 h]
+    I["incidents opened / resolved · open > 2 h"]
     K[ticket sync failures]
     D[DB connections · replication lag · backup age]
-    M[AI calls · 429/503 rate · p95 latency · spend]
+    M["AI calls · 429/503 rate · p95 latency · spend"]
     Q[weekly trace sample · golden-set live run]
     LG[structured logs · auth failures]
     SE[WAF blocks · egress denials · IdP sign-ins]
@@ -203,10 +203,10 @@ flowchart TB
   end
   H & F & I & K & D & M --> PM[Prometheus + Alertmanager → Grafana]
   Q --> PHX[Phoenix annotations]
-  LG --> LOKI[Loki / ELK]
-  SE --> SIEM[SIEM · Wazuh / Splunk / Sentinel]
+  LG --> LOKI["Loki / ELK"]
+  SE --> SIEM["SIEM · Wazuh / Splunk / Sentinel"]
   DR & CX --> OPSB[Ops board]
-  PM & SIEM -->|page, independent of the console| OWNER[Owner / on-call]
+  PM & SIEM -->|page, independent of the console| OWNER["Owner / on-call"]
 ```
 
 ## 9. Deployment view
@@ -214,20 +214,20 @@ flowchart TB
 ```mermaid
 flowchart LR
   subgraph Site["Data-centre management network"]
-    EXP[Exporters: node · SNMP PDU · env · BMS] --> PROM[Prometheus]
+    EXP["Exporters: node · SNMP PDU · env · BMS"] --> PROM[Prometheus]
   end
   subgraph Host["On-prem Docker/Kubernetes  or  AWS (ECS Fargate)"]
-    LB[Reverse proxy / ALB + CloudFront] --> BE[Backend ×2]
-    BE --> PG[(PostgreSQL / RDS)]
+    LB["Reverse proxy / ALB + CloudFront"] --> BE[Backend ×2]
+    BE --> PG[("PostgreSQL / RDS")]
     BE --> PROM
-    BE --> PHX[Phoenix collector, optional]
+    BE --> PHX["Phoenix collector, optional"]
   end
   OPS[Operator browser] --> LB
   BE --> IDP[OIDC IdP]
-  BE --> TKT[ServiceNow / Jira]
+  BE --> TKT["ServiceNow / Jira"]
   BE -. only if enabled .-> LLM[Model API via egress proxy]
-  CI[GitHub Actions: CI · deploy via OIDC → ECR → migration task → ECS → smoke] --> BE
-  TF[Terraform: VPC · ALB · ECS · RDS · ECR · CloudFront · state in S3+DynamoDB] --> Host
+  CI["GitHub Actions: CI · deploy via OIDC → ECR → migration task → ECS → smoke"] --> BE
+  TF["Terraform: VPC · ALB · ECS · RDS · ECR · CloudFront · state in S3+DynamoDB"] --> Host
 ```
 
 Restore proof (Phase 7): after `backup.sh` → `destroy.sh` → `restore.sh INC-nnn`, `GET /api/v1/incidents` returns the same incident with its original `opened` timestamp. Blocked until incidents are persisted (T16).

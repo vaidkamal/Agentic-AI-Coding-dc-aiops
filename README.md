@@ -129,10 +129,10 @@ Three snapshots, as in the course reference project: each stage keeps the previo
 ### 5.1 C4 level 1: context
 ```mermaid
 flowchart LR
-  OP[NOC engineer<br/>shift lead · planner] -->|watches, approves| SYS[DC-North AIOps<br/>console + backend]
-  PROM[Prometheus<br/>node · SNMP PDU · env sensors] -->|telemetry| SYS
-  SYS -->|bearer token validation| IDP[Identity provider<br/>OIDC · JWKS]
-  SYS -->|open · work note · close| TKT[ServiceNow / Jira]
+  OP["NOC engineer<br/>shift lead · planner"] -->|watches, approves| SYS["DC-North AIOps<br/>console + backend"]
+  PROM["Prometheus<br/>node · SNMP PDU · env sensors"] -->|telemetry| SYS
+  SYS -->|bearer token validation| IDP["Identity provider<br/>OIDC · JWKS"]
+  SYS -->|open · work note · close| TKT["ServiceNow / Jira"]
   SYS -.->|one bounded call per triage note, optional| LLM[Anthropic model API]
 ```
 
@@ -140,21 +140,21 @@ flowchart LR
 ```mermaid
 flowchart TB
   subgraph Browser
-    CON[Console · frontend/index.html<br/>heatmap · z-score detector · zone correlator<br/>runbook catalogue · triage draft review]
+    CON["Console · frontend/index.html<br/>heatmap · z-score detector · zone correlator<br/>runbook catalogue · triage draft review"]
   end
   subgraph Backend["Backend · FastAPI"]
-    AD[adapters/<br/>simulator · prometheus] --> PL[poll_loop<br/>validate · broadcast]
+    AD["adapters/<br/>simulator · prometheus"] --> PL["poll_loop<br/>validate · broadcast"]
     AU[auth · OIDC JWKS]
-    IR[incidents router<br/>create · log · resolve]
-    TK[integrations/<br/>servicenow · jira]
-    AI[ai/<br/>triage · budget · ratelimit · tracing]
+    IR["incidents router<br/>create · log · resolve"]
+    TK["integrations/<br/>servicenow · jira"]
+    AI["ai/<br/>triage · budget · ratelimit · tracing"]
   end
   CON <-->|WebSocket snapshots| PL
   CON -->|REST /api/v1| IR
   CON -->|POST /ai/triage| AI
-  IR --> PG[(PostgreSQL<br/>incidents · events · runs · ai_spend)]
+  IR --> PG[("PostgreSQL<br/>incidents · events · runs · ai_spend")]
   IR --> TK
-  AI --> PHX[Phoenix collector<br/>optional]
+  AI --> PHX["Phoenix collector<br/>optional"]
   AI -. no import path .-> IR
 ```
 
@@ -209,21 +209,21 @@ Steps 1–4 never write. Step 6 is the only write; the model is not called at th
 ```mermaid
 flowchart LR
   subgraph Site["Data-centre management network"]
-    EXP[Exporters: node · SNMP PDU · env · BMS] --> PROM[Prometheus]
+    EXP["Exporters: node · SNMP PDU · env · BMS"] --> PROM[Prometheus]
   end
   subgraph Host["On-prem Docker/Kubernetes  or  AWS ECS Fargate"]
-    LB[Reverse proxy / ALB + CloudFront<br/>TLS · WAF] --> BE[Backend ×2]
-    BE --> PG[(PostgreSQL / RDS<br/>TLS · encrypted at rest)]
+    LB["Reverse proxy / ALB + CloudFront<br/>TLS · WAF"] --> BE[Backend ×2]
+    BE --> PG[("PostgreSQL / RDS<br/>TLS · encrypted at rest")]
     BE --> PROM
-    BE --> OTEL[OTel collector → Phoenix / Tempo]
+    BE --> OTEL["OTel collector → Phoenix / Tempo"]
   end
   OPS[Operator browser · SSO] --> LB
   BE --> IDP[OIDC IdP]
-  BE -->|egress proxy| TKT[ServiceNow / Jira]
+  BE -->|egress proxy| TKT["ServiceNow / Jira"]
   BE -. only if enabled .-> LLM[Model API]
-  BE -. denied by firewall .-> BMS[BMS / PDU control]
-  CI[GitHub Actions: CI · deploy via OIDC → ECR → migration → ECS → smoke] --> BE
-  TF[Terraform: VPC · ALB · ECS · RDS · ECR · CloudFront · state in S3 + DynamoDB] --> Host
+  BE -. denied by firewall .-> BMS["BMS / PDU control"]
+  CI["GitHub Actions: CI · deploy via OIDC → ECR → migration → ECS → smoke"] --> BE
+  TF["Terraform: VPC · ALB · ECS · RDS · ECR · CloudFront · state in S3 + DynamoDB"] --> Host
 ```
 
 ### 5.6 Security view (STRIDE summary)
@@ -239,23 +239,23 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph CORP["Corporate network / VPN"]
-    OPS[Operator browser<br/>SSO + MFA at the IdP]
+    OPS["Operator browser<br/>SSO + MFA at the IdP"]
   end
   subgraph MGMT["Management network · deny-by-default firewall"]
-    RP[Reverse proxy<br/>TLS 1.2+ · HSTS · WAF · CSP · rate rules]
-    BE[Backend<br/>JWT validation · RBAC · Pydantic validation · input caps]
-    AI[AI module<br/>no import path to writes · bounded call · post-validation]
-    PG[(PostgreSQL<br/>TLS verify-full · encrypted at rest · least-privilege roles · append-only events)]
-    SM[Secret manager<br/>DB · ticketing · model key · rotated 90 d]
-    PROM[Prometheus<br/>read-only · SNMPv3 exporters]
-    OTEL[OTel → Phoenix / Tempo<br/>key and bearer redacted · identity hashed]
+    RP["Reverse proxy<br/>TLS 1.2+ · HSTS · WAF · CSP · rate rules"]
+    BE["Backend<br/>JWT validation · RBAC · Pydantic validation · input caps"]
+    AI["AI module<br/>no import path to writes · bounded call · post-validation"]
+    PG[("PostgreSQL<br/>TLS verify-full · encrypted at rest · least-privilege roles · append-only events")]
+    SM["Secret manager<br/>DB · ticketing · model key · rotated 90 d"]
+    PROM["Prometheus<br/>read-only · SNMPv3 exporters"]
+    OTEL["OTel → Phoenix / Tempo<br/>key and bearer redacted · identity hashed"]
   end
   subgraph EXT["External · via egress proxy allow-list"]
     IDP[Identity provider]
-    TKT[ServiceNow / Jira<br/>least-privilege service account]
-    LLM[Model API<br/>optional · sanitised text only]
+    TKT["ServiceNow / Jira<br/>least-privilege service account"]
+    LLM["Model API<br/>optional · sanitised text only"]
   end
-  BMS[BMS / PDU control]
+  BMS["BMS / PDU control"]
   OPS -->|HTTPS 443| RP --> BE
   BE --> AI
   BE --> PG
@@ -275,22 +275,22 @@ flowchart LR
   subgraph CI["Pipeline checks · every push unless noted"]
     direction LR
     L[ruff] --> T[pytest 78] --> E[evals --mock] --> G[no-write-path grep]
-    G --> S1[SAST<br/>Bandit · Semgrep · CodeQL] --> S2[Dependencies<br/>pip-audit · Dependabot] --> S3[Secrets<br/>gitleaks] --> S4[Image<br/>Trivy] --> S5[IaC<br/>tfsec · Checkov] --> S6[SBOM + sign<br/>Syft · Cosign]
+    G --> S1["SAST<br/>Bandit · Semgrep · CodeQL"] --> S2["Dependencies<br/>pip-audit · Dependabot"] --> S3["Secrets<br/>gitleaks"] --> S4["Image<br/>Trivy"] --> S5["IaC<br/>tfsec · Checkov"] --> S6["SBOM + sign<br/>Syft · Cosign"]
   end
-  S6 -->|tagged release only| DEP[Deploy via GitHub OIDC<br/>ECR → migration task → ECS → smoke]
-  DEP --> PRE[Pre-release · staging<br/>DAST ZAP · live golden set · DB restore drill]
-  PRE --> P4[Before P4 · annual<br/>penetration test · config review]
+  S6 -->|tagged release only| DEP["Deploy via GitHub OIDC<br/>ECR → migration task → ECS → smoke"]
+  DEP --> PRE["Pre-release · staging<br/>DAST ZAP · live golden set · DB restore drill"]
+  PRE --> P4["Before P4 · annual<br/>penetration test · config review"]
 ```
 
 ```mermaid
 flowchart TB
   subgraph SIG["Signals from the running system"]
-    H[/healthz · liveness · db · tracing]
+    H["/healthz · liveness · db · tracing"]
     F[snapshot age · racks reporting per zone]
-    I[incidents opened / resolved · open > 2 h]
+    I["incidents opened / resolved · open > 2 h"]
     K[ticket sync failures]
     D[DB connections · replication lag · backup age]
-    M[AI calls · 429/503 rate · p95 latency · spend]
+    M["AI calls · 429/503 rate · p95 latency · spend"]
     Q[weekly trace sample · golden-set live run]
     LG[structured logs · auth failures]
     SE[WAF blocks · egress denials · IdP sign-ins]
@@ -299,10 +299,10 @@ flowchart TB
   end
   H & F & I & K & D & M --> PM[Prometheus + Alertmanager → Grafana]
   Q --> PHX[Phoenix annotations]
-  LG --> LOKI[Loki / ELK]
-  SE --> SIEM[SIEM · Wazuh / Splunk / Sentinel]
+  LG --> LOKI["Loki / ELK"]
+  SE --> SIEM["SIEM · Wazuh / Splunk / Sentinel"]
   DR & CX --> OPSB[Ops board]
-  PM & SIEM -->|page, independent of the console| OWNER[Owner / on-call]
+  PM & SIEM -->|page, independent of the console| OWNER["Owner / on-call"]
 ```
 
 Full threat model, controls by layer, pipeline checks and monitoring: [`deploy/integration-security-architecture.md`](deploy/integration-security-architecture.md).
@@ -428,10 +428,10 @@ Approve the proposed runbook; when its last step completes the fault clears, met
 **Walk-through for a first-time user (two minutes).** Overview → Inject fault → "CRAC unit failure (Zone C)" → watch Zone C tiles turn orange then red → Incidents badge shows 1 → open it, read the cause ("CRAC-3 is the only shared cooling dependency…") → Approve runbook → steps tick → tiles cool → incident moves to Resolved → expand Timeline. Then open Triage and type a symptom.
 
 ### 7.2 The session transcript, turn by turn — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_turn_by_turn.html
-**Purpose.** The course asks for an export of the turn-by-turn conversation so a reviewer can see how the project was built, not only what came out. This page lists the project-relevant architect messages verbatim, in order, across the two sessions (7 and 17 October 2026); under each one the harness's response is condensed to what was decided, built and delivered, with the files produced. Administrative turns (git and GitHub Pages commands, form entry, chat drafts) are omitted. Attached images and PDFs are described in brackets. Blue = architect, green = harness. The raw harness session (sign-in required) is linked at the top for anyone who wants the unedited record.
+**Purpose.** The course asks for an export of the turn-by-turn conversation so a reviewer can see how the project was built, not only what came out. This page lists the architect messages of the build session verbatim, in order; under each one the harness's response is condensed to what was decided, built and delivered, with the files produced. Attached images are described in brackets. Blue = architect, green = harness.
 
 ### 7.2a The session log, by stage — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_session_log.html
-**Purpose.** The same work grouped into the course's stages rather than by message, for a reader who wants the shape of the build without the back-and-forth. Colour-coded: blue = architect instruction, green = what the harness produced, amber = a review or an incident. It records: the first specification and console (turn 1); backend, adapters and integrations (turn 2); the review that found the spec living only inside the app and the spec files that followed (turn 3); the submission form (turn 4); the rebuild to the trainer's method (turn 5): the six-weekend extraction, the four specs, the fifth AI spec, the evals-stage documents, the workspace-recycling incident and the lesson "commit after every turn", the two parallel builders, and the eleven conflicts they reported with the decision taken on each; and the documentation-to-production stage (turn 6): user guide, rollout guide, integration and security architecture, architecture standards, Phoenix evidence, ticketing tests, and the final audit.
+**Purpose.** The same work grouped into the course's stages rather than by message, for a reader who wants the shape of the build without the back-and-forth. Colour-coded: blue = architect instruction, green = what the harness produced, amber = a review or an incident. It records: the first specification and console (turn 1); backend, adapters and integrations (turn 2); the review that found the spec living only inside the app and the spec files that followed (turn 3); the submission form (turn 4); the rebuild to the trainer's method (turn 5): the six-weekend extraction, the four specs, the fifth AI spec, the evals-stage documents, the workspace-recycling incident and the lesson "commit after every turn", the two parallel builders, and the eleven conflicts they reported with the decision taken on each.
 
 ### 7.3 The design-decision walkthrough — https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/docs/dc-aiops-design-walkthrough.html
 **Purpose.** The course's "design decision walkthrough and interview preparation": why the system is the way it is, and the questions I prepared to answer without opening the code. Sections: (1) how the project was built, weekend by weekend, with the repository layout; (2) the design decisions, each with what was chosen, what was rejected and why (detection method, correlate-before-alarm, approval gate, explainable incidents, detection in the browser, one telemetry contract, announced feed loss, one bounded model call, model-proposes/application-saves, limits in code, observability, golden set first, deployment with recovery proof, architecture described to a standard, third parties connected by contract); (3) three trade-offs I would defend; (4) how it was verified, criterion by criterion, including the ticketing lifecycle and the Phoenix run; (5) interview preparation: the ten questions I expect most, with answers; (6) what remains, honestly. The full decision records with revisit-when conditions are `docs/design-decisions.md`; the 25 interview questions are `docs/interview-questions.md`.
