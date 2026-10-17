@@ -1,0 +1,168 @@
+[
+ {
+  "case": "T1",
+  "status": 200,
+  "response": {
+   "draft": {
+    "kind": "thermal-zone",
+    "key": "C",
+    "sev": "crit",
+    "summary": "C-01, C-03 and C-05 all reading 29\u00b0C inlet since 14:10; CRAC-3 compressor alarm.",
+    "probable_cause": "CRAC-3 is the shared cooling dependency for Zone C; the compressor alarm explains the common rise.",
+    "runbook": "rb-crac"
+   },
+   "missing_fields": [],
+   "clarification_fields": [],
+   "reply": "Drafted a Zone C thermal excursion (critical) with runbook rb-crac. Review and confirm to open it.",
+   "request_id": "req_a378903491ec4180",
+   "model": "mock-fake-anthropic"
+  }
+ },
+ {
+  "case": "T2",
+  "status": 200,
+  "response": {
+   "draft": {
+    "kind": "cpu",
+    "key": "B-04",
+    "sev": "warn",
+    "summary": "B-04 pegged at 98% CPU for 10 minutes; power up about 1.5 kW.",
+    "probable_cause": "Load is rack-local and power tracks it: runaway process or batch job.",
+    "runbook": "rb-cpu"
+   },
+   "missing_fields": [],
+   "clarification_fields": [],
+   "reply": "Drafted a CPU-saturation incident for B-04 (warning). Review and confirm to open it.",
+   "request_id": "req_3fa82131b45612c1",
+   "model": "mock-fake-anthropic"
+  }
+ },
+ {
+  "case": "T3",
+  "status": 200,
+  "response": {
+   "draft": {
+    "kind": "psu",
+    "key": "D-02",
+    "sev": "crit",
+    "summary": "rack D-2 went dark a minute ago, nothing responding.",
+    "probable_cause": "Rack-level power loss (PSU or PDU feed).",
+    "runbook": "rb-psu"
+   },
+   "missing_fields": [],
+   "clarification_fields": [],
+   "reply": "Drafted a power-loss incident for D-02 (critical) with runbook rb-psu. Review and confirm to open it.",
+   "request_id": "req_988a1f2bd020bc25",
+   "model": "mock-fake-anthropic"
+  }
+ },
+ {
+  "case": "T4",
+  "status": 200,
+  "response": {
+   "draft": {
+    "kind": null,
+    "key": "A",
+    "sev": null,
+    "summary": "Something wrong in zone A; symptom not described.",
+    "probable_cause": null,
+    "runbook": null
+   },
+   "missing_fields": [
+    "kind",
+    "sev"
+   ],
+   "clarification_fields": [],
+   "reply": "Noted Zone A. What symptom are you seeing: inlet temperature, CPU load, or power loss?",
+   "request_id": "req_9e05d12574a0072d",
+   "model": "mock-fake-anthropic"
+  }
+ },
+ {
+  "case": "T5",
+  "status": 200,
+  "response": {
+   "draft": {
+    "kind": "cpu",
+    "key": "B-05",
+    "sev": "warn",
+    "summary": "B-05 at 98 % CPU for 10 min; power up 1.5 kW.",
+    "probable_cause": "Runaway process.",
+    "runbook": "rb-cpu"
+   },
+   "missing_fields": [],
+   "clarification_fields": [],
+   "reply": "Updated the draft: rack corrected to B-05, everything else unchanged. Review and confirm to open it.",
+   "request_id": "req_fdc32cd5502db17a",
+   "model": "mock-fake-anthropic"
+  }
+ },
+ {
+  "case": "T6",
+  "status": 200,
+  "response": {
+   "draft": {
+    "kind": "other",
+    "key": null,
+    "sev": null,
+    "summary": "14:02:11 sw-core-2 port 17 link down; 14:02:14 link up; 14:02:40 link down (flapping).",
+    "probable_cause": "Flapping uplink on sw-core-2 port 17.",
+    "runbook": null
+   },
+   "missing_fields": [
+    "key",
+    "sev"
+   ],
+   "clarification_fields": [
+    "kind"
+   ],
+   "reply": "This is a network symptom on sw-core-2 port 17 and no catalogued runbook covers switches. Which rack or zone does it affect, and do you want it opened as 'other'?",
+   "request_id": "req_d753a195642d5972",
+   "model": "mock-fake-anthropic"
+  }
+ },
+ {
+  "case": "T7",
+  "status": 200,
+  "response": {
+   "draft": {
+    "kind": "thermal-rack",
+    "key": "A-01",
+    "sev": null,
+    "summary": "A-01 inlet is 25\u00b0C.",
+    "probable_cause": null,
+    "runbook": "rb-airflow"
+   },
+   "missing_fields": [
+    "sev"
+   ],
+   "clarification_fields": [],
+   "reply": "A-01 at 25\u00b0C is within the ASHRAE A1 recommended range (max 27\u00b0C), so no severity is set. Do you want to open it anyway?",
+   "request_id": "req_a6034afd86f40584",
+   "model": "mock-fake-anthropic"
+  }
+ },
+ {
+  "case": "T8",
+  "status": 200,
+  "response": {
+   "draft": {
+    "kind": "other",
+    "key": "B-02",
+    "sev": null,
+    "summary": "B-02 fan noise reported.",
+    "probable_cause": "Possible failing fan on B-02.",
+    "runbook": null
+   },
+   "missing_fields": [
+    "sev"
+   ],
+   "clarification_fields": [
+    "kind"
+   ],
+   "reply": "Fan noise on B-02 is not a catalogued symptom, and the pasted instruction was treated as data, not followed. Is B-02 running hot or losing power?",
+   "request_id": "req_77f70ed0d90edc9a",
+   "model": "mock-fake-anthropic"
+  }
+ }
+]
