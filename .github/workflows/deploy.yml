@@ -1,0 +1,252 @@
+---
+# deploy.yml — Phase 5 "Backend release": build packages → deploy the version → verify.
+#
+# Pipeline (one job per course step so each status can be read separately):
+#   test  → lint + pytest + mock evals (same as ci.yml; a release never skips checks)
+#   deploy → OIDC login → build & push image (tag = git sha) → register task definition
+#           → run Alembic migration as a one-off ECS task and check its exit code
+#           → update the ECS service → wait for stability → /healthz on the ALB
+#           → smoke: create and resolve a test incident through the API
+#
+# Triggers: push to main touching the application, or a manual run (workflow_dispatch)
+# which is how Phase 7 recovery re-publishes the image after a rebuild.
+#
+# Required repository secrets:
+#   AWS_DEPLOY_ROLE_ARN  IAM role assumed via GitHub OIDC (terraform output deploy_role_arn)
+#   ALB_URL              http://<alb-dns-name>  (terraform output alb_url)
+#   SMOKE_TOKEN          bearer token accepted by the hosted API for the smoke test
+# Required repository variables (Settings → Variables), all from `terraform output`:
+#   AWS_REGION, ECR_REPOSITORY, ECS_CLUSTER, ECS_SERVICE
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "Dockerfile"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this manual run (e.g. 'Phase 7 restore after rebuild')"
+        required: false
+        default: "manual release"
+
+# One release at a time; a second push waits instead of racing the first.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # OIDC token for aws-actions/configure-aws-credentials
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'dc-aiops' }}
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'dc-aiops' }}
+  ECS_SERVICE: ${{ vars.ECS_SERVICE || 'dc-aiops-api' }}
+  CONTAINER_NAME: api
+  IMAGE_TAG: ${{ github.sha }}
+  # api-contract-spec.md §: base path /api/v1. The current backend/app.py still serves
+  # /api/incidents; set repository variable API_BASE=/api until the backend is aligned.
+  API_BASE: ${{ vars.API_BASE || '/api/v1' }}
+
+jobs:
+  # ---------------------------------------------------------------- test ----
+  test:
+    name: Check (lint, tests, mock evals)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: sqlite:///./ci.db
+      AUTH_MODE: dev
+      TELEMETRY_ADAPTER: simulator
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install ruff pytest
+      - name: Lint (ruff)
+        run: |
+          if [ -f backend/pyproject.toml ] || [ -f backend/ruff.toml ] \
+             || [ -f pyproject.toml ] || [ -f ruff.toml ]; then
+            ruff check backend
+          else
+            ruff check backend || echo "::warning::ruff not configured - non-blocking"
+          fi
+      - name: Unit tests
+        run: cd backend && pytest -q
+      - name: Mock evals
+        run: python evals/run_cases.py --mock
+
+  # -------------------------------------------------------------- deploy ----
+  deploy:
+    name: Build, migrate, roll out, verify
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC, no long-lived keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: github-deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ---- Build packages -------------------------------------------------
+      - name: Build and push image
+        id: build
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker build -t "$IMAGE" -f Dockerfile .
+          docker tag "$IMAGE" "$REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$IMAGE"
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "Pushed $IMAGE"
+
+      # ---- Deploy the version ---------------------------------------------
+      - name: Register task definition with the new image
+        id: taskdef
+        run: |
+          # Start from the task definition the service runs today (Terraform created
+          # the first revision), swap only the image, register a new revision.
+          CURRENT=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+                    --query 'services[0].taskDefinition' --output text)
+          echo "Current task definition: $CURRENT"
+          aws ecs describe-task-definition --task-definition "$CURRENT" \
+            --query 'taskDefinition' > current.json
+          jq --arg img "${{ steps.build.outputs.image }}" --arg name "$CONTAINER_NAME" '
+            .containerDefinitions |= map(if .name == $name then .image = $img else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
+          ' current.json > new.json
+          NEW_ARN=$(aws ecs register-task-definition --cli-input-json file://new.json \
+                    --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "Registered $NEW_ARN"
+          echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Run database migration as a one-off ECS task
+        id: migrate
+        run: |
+          # Reuse the service's own network configuration (private subnets + task SG)
+          # so the migration task reaches RDS exactly as the API does.
+          NETCFG=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+                   --query 'services[0].networkConfiguration' --output json)
+          # TODO(backend): once backend/alembic.ini exists, change the command to
+          #   ["alembic","upgrade","head"]
+          # Until then the step is a no-op that proves the mechanism (task runs, exit
+          # code is read, rollout is gated on it).
+          MIGRATE_CMD='["python","-c","print(\"no migrations\")"]'
+          if [ -f backend/alembic.ini ]; then
+            MIGRATE_CMD='["alembic","upgrade","head"]'
+          fi
+          OVERRIDES=$(jq -nc --arg name "$CONTAINER_NAME" --argjson cmd "$MIGRATE_CMD" \
+                      '{containerOverrides:[{name:$name,command:$cmd}]}')
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$ECS_CLUSTER" \
+            --launch-type FARGATE \
+            --task-definition "${{ steps.taskdef.outputs.arn }}" \
+            --network-configuration "$NETCFG" \
+            --overrides "$OVERRIDES" \
+            --started-by "github-migrate-${{ github.run_number }}" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "Migration task: $TASK_ARN (command: $MIGRATE_CMD)"
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN"
+          aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].{stopCode:stopCode,stoppedReason:stoppedReason,containers:containers[].{name:name,exitCode:exitCode,reason:reason}}' \
+            --output json | tee migrate-result.json
+          EXIT=$(jq -r --arg name "$CONTAINER_NAME" \
+                 '.containers[] | select(.name==$name) | .exitCode // "null"' migrate-result.json)
+          if [ "$EXIT" != "0" ]; then
+            echo "::error::Migration task exited with code '$EXIT' - rollout stopped before the service was touched."
+            exit 1
+          fi
+          echo "Migration exit code 0"
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" \
+            --task-definition "${{ steps.taskdef.outputs.arn }}" \
+            --query 'service.{service:serviceName,taskDefinition:taskDefinition,desired:desiredCount}' \
+            --output table
+
+      - name: Wait for service stability
+        run: |
+          # Fails (non-zero) if the deployment does not settle within ~10 minutes,
+          # which is the signal to inspect ECS events before touching application code.
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+          aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].deployments[].{status:status,running:runningCount,desired:desiredCount,taskDef:taskDefinition}' \
+            --output table
+
+      # ---- Verify -----------------------------------------------------------
+      - name: Health check on the ALB
+        env:
+          ALB_URL: ${{ secrets.ALB_URL }}
+        run: |
+          for i in $(seq 1 12); do
+            BODY=$(curl -fsS --max-time 10 "$ALB_URL/healthz" || true)
+            if echo "$BODY" | jq -e '.ok == true' >/dev/null 2>&1; then
+              echo "healthz OK: $BODY"; exit 0
+            fi
+            echo "attempt $i: not healthy yet ($BODY)"; sleep 10
+          done
+          echo "::error::/healthz never returned ok:true"; exit 1
+
+      - name: Smoke test - create and resolve an incident
+        env:
+          ALB_URL: ${{ secrets.ALB_URL }}
+          SMOKE_TOKEN: ${{ secrets.SMOKE_TOKEN }}
+        run: |
+          set -euo pipefail
+          API="$ALB_URL$API_BASE"
+          ID="INC-9$(date +%s)"   # digits only, matches /^INC-\d+$/, unique per run
+          OPENED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          BODY=$(jq -nc --arg id "$ID" --arg opened "$OPENED" '{
+            id:$id, kind:"cpu", key:"B-04", sev:"warn",
+            title:"Smoke test (deploy ${{ github.run_number }})",
+            summary:"Automated post-deploy smoke test; safe to ignore.",
+            rca:"None - synthetic incident created by the deploy workflow.",
+            conf:0.5, runbook:"rb-cpu", opened:$opened }')
+          echo "Creating $ID"
+          CODE=$(curl -sS -o create.json -w '%{http_code}' -X POST "$API/incidents" \
+                 -H "Authorization: Bearer $SMOKE_TOKEN" -H 'Content-Type: application/json' -d "$BODY")
+          [ "$CODE" = "201" ] || { echo "::error::POST /incidents returned $CODE: $(cat create.json)"; exit 1; }
+          echo "Resolving $ID"
+          CODE=$(curl -sS -o resolve.json -w '%{http_code}' -X POST "$API/incidents/$ID/resolve" \
+                 -H "Authorization: Bearer $SMOKE_TOKEN")
+          [ "$CODE" = "200" ] || { echo "::error::POST /resolve returned $CODE: $(cat resolve.json)"; exit 1; }
+          jq -e '.resolved == true' resolve.json >/dev/null \
+            || { echo "::error::incident not marked resolved: $(cat resolve.json)"; exit 1; }
+          echo "Smoke PASS: $ID created (201) and resolved (200, resolved=true)"
+
+      - name: Release summary
+        if: always()
+        run: |
+          {
+            echo "## Deploy ${{ github.run_number }}"
+            echo "- image: \`${{ steps.build.outputs.image || 'not built' }}\`"
+            echo "- task definition: \`${{ steps.taskdef.outputs.arn || 'not registered' }}\`"
+            echo "- trigger: ${{ github.event_name }} ${{ github.event.inputs.reason || '' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

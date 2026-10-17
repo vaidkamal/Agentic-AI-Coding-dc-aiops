@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DC-North AIOps — session log</title>
+<style>
+body{font-family:"IBM Plex Sans",-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:900px;margin:2rem auto;padding:0 16px;color:#13203A;background:#F5F7FA;line-height:1.55}
+h1{font-size:1.6rem}h2{font-size:1.15rem;margin-top:2rem;border-top:1px solid #D6DEE9;padding-top:1rem}
+.turn{background:#fff;border:1px solid #D6DEE9;border-radius:8px;padding:1rem;margin:1rem 0}
+.who{font-size:.8rem;color:#5B6B85;text-transform:none;margin-bottom:.3rem}
+.arch{border-left:4px solid #1F6FEB}.agent{border-left:4px solid #1B9E6A}.review{border-left:4px solid #D98B00}
+pre{background:#EEF2F7;padding:.6rem .8rem;border-radius:6px;overflow-x:auto;font-size:.85rem}
+ul{margin:.3rem 0 .3rem 1.2rem}
+small{color:#5B6B85}
+</style></head><body>
+<h1>DC-North AIOps — session log</h1>
+<p><small>Derived from the Claude session <a href="https://claude.ai/code/session_01B6WBDCn3ZQcBy6jiC5uLRX">session_01B6WBDCn3ZQcBy6jiC5uLRX</a>. Architect = course participant; Agent = Claude (coding harness). Dates in Europe/Zurich.</small></p>
+
+<h2>Turn 1 · 2026-10-07 — Specification and first build</h2>
+<div class="turn arch"><div class="who">Architect</div>Shared the course's five-stage diagram (Specification → Planning → Coding &amp; Iteration → Review &amp; Validate → Deployment). Instruction: "As your sr. software engineer using agentic AI, assist code using SDD principle: create data-centre IT-operation web-based AIOps."</div>
+<div class="turn agent"><div class="who">Agent</div>Wrote the spec inside the console (problem, goal, 4 user stories, AC-1…AC-5), planned the decomposition (data layer → z-score detector → zone correlator → incident manager → runbook executor → UI), built a single-file console with three injectable faults, and published it. Verified each AC by injection.</div>
+<div class="turn review"><div class="who">Review</div>Architect: "Yes" to the proposed productionisation steps.</div>
+
+<h2>Turn 2 · 2026-10-07 — Backend, adapters, integrations</h2>
+<div class="turn agent"><div class="who">Agent</div>FastAPI backend: WebSocket telemetry broadcast, simulator and Prometheus adapters conforming to one snapshot shape, OIDC JWKS auth with dev bypass, ServiceNow and Jira integrations, Docker Compose. Console patched to consume the feed, fall back to the simulator, and sync incident lifecycle to the API.</div>
+
+<h2>Turn 3 · 2026-10-07 — "Where are the md files based on SDD?"</h2>
+<div class="turn review"><div class="who">Review</div>Architect caught that the spec lived only inside the app. The agent had shipped without spec files.</div>
+<div class="turn agent"><div class="who">Agent</div>Wrote a first spec set (constitution, spec, plan, research, data model, contracts, tasks). AC-6 (audit trail) and AC-7 (feed fallback) were added because the backend had introduced behaviour the spec did not state — spec fixed to match reality rather than left to drift.</div>
+
+<h2>Turn 4 · 2026-10-17 — Submission form</h2>
+<div class="turn arch"><div class="who">Architect</div>Shared the board's form: title, abstract, deployed URL, transcript URL, design-decision walkthrough URL.</div>
+<div class="turn agent"><div class="who">Agent</div>Published the design-decision walkthrough page; supplied the five field answers.</div>
+
+<h2>Turn 5 · 2026-10-17 — Rebuild to the trainer's method</h2>
+<div class="turn arch"><div class="who">Architect</div>Shared the six weekends of course material and the reference project layout (specs/, specs_with_AI_feature/, specs_with_AI_Evals/, transcripts, architecture page). "Please all steps project as per board and trainer."</div>
+<div class="turn agent"><div class="who">Agent — read</div>Six parallel readers extracted the method from ~400 pages: SDD five phases, four control surfaces, spec anatomy, the four specs + AI-spec, implementation plan with evidence of completion, AC→check mapping and "test the test", deployment and recovery phases 4–7, Phoenix observability, golden sets and codebook, C4 and ADRs.</div>
+<div class="turn agent"><div class="who">Agent — specs/ (Lecture 5)</div>
+<ul><li><code>goal-spec.md</code>: product, users, use cases, boundaries, constraints, glossary, testable success criterion, ambiguities resolved, output files.</li>
+<li><code>frontend-spec.md</code>: tech decisions with alternatives, design tokens, screens, flows, observable interface behaviour table.</li>
+<li><code>backend-spec.md</code>: responsibilities, data model, rules the server enforces, auth, secrets, deployment and recovery.</li>
+<li><code>api-contract-spec.md</code>: product decisions → contract, schemas, endpoints, examples, what the contract does not prescribe.</li>
+<li><code>implementation-plan.md</code>: phases 0–9 with completion evidence and dated status.</li></ul></div>
+<div class="turn agent"><div class="who">Agent — specs_with_AI_feature/ (Lecture 6)</div><code>AI-spec.md</code> (fifth spec): scope, languages, interpretation rules with contrasting examples, request/response shape, confirmation and corrections, late replies and uncertain saves, failure and usage limits, acceptance criteria each with a command, how the fifth spec changes the other four. Revision-2 sections appended to the four specs.</div>
+<div class="turn agent"><div class="who">Agent — specs_with_AI_Evals/ (Weekend 5)</div><code>observability-spec.md</code> (spans, attributes, redaction, human annotation fields), <code>observability-runbook.md</code> (Phoenix setup, open/axial coding prompts, when checks run, hill-climbing), <code>ai-implementation-plan.md</code> (flowchart decision, phases 8.1–9.8), <code>evals/golden/cases.json</code> T1–T8 by dimension.</div>
+<div class="turn review"><div class="who">Incident</div>The cloud workspace had been recycled between sessions; backend and frontend were missing on disk. Recreated from the session record; builders told to re-read before wiring. Lesson recorded: commit the repo to Git after every turn.</div>
+<div class="turn agent"><div class="who">Agent — code (two parallel builders)</div>
+<ul><li>AI builder: <code>backend/ai/</code> (schemas, budget, triage, tracing), triage endpoint, pytest suites named after the AC commands, evals harness (<code>run_cases.py --mock/--live</code>), codebook, review table, baseline, <code>scripts/verify.sh</code>.</li>
+<li>Deploy builder: CI and deploy workflows, Terraform (VPC, ALB, ECS Fargate, RDS, ECR, Secrets Manager, OIDC role, CloudFront), backup/destroy/restore/demo-tunnel scripts, deployment brief, release runbook.</li>
+<li>Console: Triage tab per frontend-spec Revision 2 (draft form, confirm gate, stale-reply guard, lost-save message, draft restoration).</li></ul></div>
+<div class="turn review"><div class="who">Review — conflicts the builders reported back (not patched silently)</div>
+<ul><li>Base path: contract says <code>/api/v1</code>, code served <code>/api/incidents</code>. Decision: code follows the contract; legacy alias kept for one release.</li>
+<li>Persistence: contract and backend-spec require PostgreSQL; v1 code is in-memory. Decision: recorded as open in the plan; Phase 7 proof blocked until T16; ticket system is the record meanwhile.</li>
+<li>Smoke token under OIDC needs an IdP-issued credential. Decision: documented in the deployment brief.</li></ul></div>
+<div class="turn agent"><div class="who">Agent — Weekend 6 documents</div><code>docs/design-decisions.md</code> (12 ADRs: context, choice, alternatives, consequences, revisit-when), <code>docs/interview-questions.md</code> (25 questions answerable only by understanding the code), <code>dc-aiops-architecture.html</code> (C4 context/containers/components, two request paths, testable failure table, authority table, source-of-truth table).</div>
+</body></html>

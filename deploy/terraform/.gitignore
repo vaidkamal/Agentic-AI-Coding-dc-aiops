@@ -1,0 +1,9 @@
+# Local Terraform working files and anything that may hold secrets.
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.auto.tfvars
+crash.log
+tfplan

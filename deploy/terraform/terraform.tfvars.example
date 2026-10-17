@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars (git-ignored) and fill in. Never put db_password here —
+# export TF_VAR_db_password=... from your password manager instead.
+
+project       = "dc-aiops"
+aws_region    = "ap-south-1"
+github_repo   = "<owner>/dc-aiops"
+github_branch = "main"
+
+# Set to false if the account already has a GitHub OIDC provider.
+create_github_oidc_provider = true
+
+# Phase 7 restore: leave empty for a fresh database, or set the id printed by backup.sh.
+snapshot_identifier = ""
+
+app_environment = {
+  TELEMETRY_ADAPTER = "simulator"
+  POLL_SECONDS      = "2"
+  AUTH_MODE         = "oidc"
+  OIDC_ISSUER       = "https://login.microsoftonline.com/<tenant>/v2.0"
+  OIDC_AUDIENCE     = "dc-aiops"
+  TICKETING         = "none"
+}

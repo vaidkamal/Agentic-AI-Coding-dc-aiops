@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DC-North AIOps Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EEF2F7; --surface:#FFFFFF; --surface-2:#E3E9F2; --line:#CBD5E3;
+  --text:#13203A; --muted:#5B6B85; --accent:#1F6FEB; --accent-soft:#D9E7FB;
+  --ok:#1B9E6A; --warn:#D98B00; --crit:#D63C3C; --crit-soft:#FBE3E3; --warn-soft:#FDF0D5; --ok-soft:#DCF3E9;
+  --heat0:#DCEBFF; --heat1:#7FC4FF; --heat2:#FFD36B; --heat3:#FF7A59; --heat4:#D63C3C;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1322; --surface:#141E33; --surface-2:#1C2941; --line:#2A3A57;
+    --text:#E4EBF6; --muted:#8A9BB8; --accent:#4FB3FF; --accent-soft:#1A3457;
+    --ok:#3DD598; --warn:#F5B942; --crit:#FF6B6B; --crit-soft:#3A1E24; --warn-soft:#3A2F17; --ok-soft:#173A2E;
+    --heat0:#18304F; --heat1:#2E7CC9; --heat2:#D9A63A; --heat3:#E86A47; --heat4:#FF4D4D;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1322; --surface:#141E33; --surface-2:#1C2941; --line:#2A3A57;
+  --text:#E4EBF6; --muted:#8A9BB8; --accent:#4FB3FF; --accent-soft:#1A3457;
+  --ok:#3DD598; --warn:#F5B942; --crit:#FF6B6B; --crit-soft:#3A1E24; --warn-soft:#3A2F17; --ok-soft:#173A2E;
+  --heat0:#18304F; --heat1:#2E7CC9; --heat2:#D9A63A; --heat3:#E86A47; --heat4:#FF4D4D;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3{margin:0;font-weight:600;line-height:1.2}
+h1{font-size:1.25rem}
+h2{font-size:1.05rem}
+h3{font-size:.95rem}
+p{margin:0}
+
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);padding:.7rem 1rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+header .site{display:flex;flex-direction:column}
+header .site small{color:var(--muted);font-size:.78rem}
+header .live{margin-left:auto;display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+
+nav{display:flex;gap:.25rem;padding:.5rem 1rem 0;border-bottom:1px solid var(--line);background:var(--surface);overflow-x:auto;position:sticky;top:calc(env(safe-area-inset-top,0px) + 58px);z-index:4}
+nav button{background:none;border:0;border-bottom:2px solid transparent;padding:.45rem .7rem;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:0}
+nav button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+nav button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+nav .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--crit);color:#fff;font-size:.7rem;line-height:18px;text-align:center}
+
+main{max-width:1180px;margin:0 auto;padding:1rem}
+section[hidden]{display:none}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:1rem;margin-bottom:1rem}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
+.panel-head small{color:var(--muted);font-size:.8rem}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin-bottom:1rem}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.75rem .9rem}
+.kpi .v{font-size:1.5rem;font-weight:600;letter-spacing:-.01em}
+.kpi .l{color:var(--muted);font-size:.8rem}
+.kpi .d{font-size:.78rem}
+.up{color:var(--crit)} .down{color:var(--ok)} .flat{color:var(--muted)}
+
+.floor{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem}
+.zone{border:1px dashed var(--line);border-radius:8px;padding:.6rem}
+.zone h3{display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.5rem}
+.zone h3 span{font-weight:400;color:var(--muted)}
+.racks{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem}
+.rack{aspect-ratio:1/1.25;border-radius:4px;border:0;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;padding:.25rem;font-size:.68rem;color:var(--text);background:var(--heat0);transition:background .6s;position:relative}
+.rack b{font-weight:600}
+.rack.hot3,.rack.hot4{color:#fff}
+.rack.hot1{background:var(--heat1)} .rack.hot2{background:var(--heat2)} .rack.hot3{background:var(--heat3)} .rack.hot4{background:var(--heat4)}
+.rack.selected{outline:2px solid var(--accent);outline-offset:2px}
+.rack.offline{background:var(--surface-2);color:var(--muted);text-decoration:line-through}
+.rack:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend{display:flex;gap:.8rem;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-top:.7rem}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:4px}
+@media (max-width:760px){.floor{grid-template-columns:repeat(2,1fr)}}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media (max-width:860px){.two{grid-template-columns:1fr}}
+.chart-wrap{position:relative;height:220px}
+
+.insight{display:flex;gap:.7rem;padding:.7rem .8rem;border-radius:8px;background:var(--surface-2);margin-bottom:.5rem;align-items:flex-start}
+.insight .sev{flex:0 0 6px;align-self:stretch;border-radius:3px;background:var(--ok)}
+.insight.warn .sev{background:var(--warn)} .insight.crit .sev{background:var(--crit)}
+.insight .t{font-weight:500}
+.insight .m{color:var(--muted);font-size:.85rem}
+.empty{color:var(--muted);font-size:.9rem;padding:.6rem 0}
+
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;padding:.5rem .4rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:.8rem}
+.scroll{overflow-x:auto}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.75rem;font-weight:500}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.crit{background:var(--crit-soft);color:var(--crit)} .pill.muted{background:var(--surface-2);color:var(--muted)}
+
+.incident{border:1px solid var(--line);border-radius:10px;padding:.9rem;margin-bottom:.8rem}
+.incident.crit{border-left:4px solid var(--crit)} .incident.warn{border-left:4px solid var(--warn)} .incident.resolved{opacity:.65}
+.incident .head{display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;align-items:center}
+.incident .meta{color:var(--muted);font-size:.8rem}
+.rca{margin:.6rem 0;padding:.6rem .75rem;background:var(--accent-soft);border-radius:8px;font-size:.88rem}
+.rca b{display:block;margin-bottom:.15rem}
+.conf{display:inline-block;height:6px;width:90px;background:var(--surface-2);border-radius:3px;vertical-align:middle;overflow:hidden}
+.conf i{display:block;height:100%;background:var(--accent)}
+.actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
+.btn{border:1px solid var(--line);background:var(--surface);padding:.4rem .8rem;border-radius:7px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.steps{list-style:none;padding:0;margin:.5rem 0 0;font-size:.85rem}
+.steps li{padding:.2rem 0;color:var(--muted)}
+.steps li.done{color:var(--ok)} .steps li.run{color:var(--accent)}
+
+.runbook{border:1px solid var(--line);border-radius:10px;padding:.9rem;margin-bottom:.7rem}
+.runbook .head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap}
+.runbook ol{margin:.5rem 0 0 1.1rem;padding:0;font-size:.88rem;color:var(--muted)}
+
+.copilot{display:flex;gap:.5rem;margin-bottom:.6rem}
+.copilot input{flex:1;padding:.5rem .7rem;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.chips{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem}
+.chips button{border:1px solid var(--line);background:var(--surface-2);border-radius:14px;padding:.2rem .7rem;font-size:.8rem;cursor:pointer}
+.answer{background:var(--surface-2);border-radius:8px;padding:.7rem .8rem;font-size:.9rem;white-space:pre-line}
+
+.spec h3{margin:1rem 0 .3rem}
+.spec ul{margin:.2rem 0 .4rem 1.1rem;padding:0}
+.spec li{margin:.15rem 0}
+.spec .stage{display:grid;grid-template-columns:28px 1fr;gap:.6rem;margin:.6rem 0}
+.spec .stage .n{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.85rem}
+.spec .stage p{color:var(--muted);font-size:.9rem}
+.fault{display:flex;gap:.4rem;align-items:center;font-size:.85rem}
+.fault select{padding:.3rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.trhist{display:flex;flex-direction:column;gap:.4rem;margin-bottom:.6rem;max-height:220px;overflow-y:auto}
+.trhist div{padding:.4rem .7rem;border-radius:8px;font-size:.88rem;max-width:80%}
+.trhist .u{align-self:flex-end;background:var(--accent-soft)} .trhist .a{align-self:flex-start;background:var(--surface-2)}
+.copilot textarea{flex:1;padding:.5rem .7rem;border:1px solid var(--line);border-radius:7px;background:var(--bg);resize:vertical;color:var(--text)}
+.trform{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.trform label{display:flex;flex-direction:column;gap:.2rem;font-size:.8rem;color:var(--muted)}
+.trform label.wide{grid-column:1/-1}
+.trform input,.trform select{padding:.4rem .6rem;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text)}
+.trform .null{border-color:var(--warn);background:var(--warn-soft)}
+@media (max-width:600px){.trform{grid-template-columns:1fr}}
+.toast{position:fixed;left:50%;bottom:calc(1rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:.5rem .9rem;border-radius:8px;font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="site">
+    <h1>DC-North AIOps Console</h1>
+    <small>Hall 2 · 4 zones · 24 racks · 1,200 kW design capacity</small>
+  </div>
+  <div class="fault">
+    <label for="faultSel">Inject fault</label>
+    <select id="faultSel">
+      <option value="">— choose —</option>
+      <option value="crac">CRAC unit failure (Zone C)</option>
+      <option value="cpu">Runaway process (rack B-04)</option>
+      <option value="psu">PSU feed loss (rack D-02)</option>
+    </select>
+  </div>
+  <div class="live"><span class="dot"></span><span id="clock">—</span></div>
+</header>
+
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-tab="overview">Overview</button>
+  <button role="tab" data-tab="incidents">Incidents<span class="badge" id="incBadge" hidden>0</span></button>
+  <button role="tab" data-tab="capacity">Capacity</button>
+  <button role="tab" data-tab="runbooks">Runbooks</button>
+  <button role="tab" data-tab="copilot">Ops copilot</button>
+  <button role="tab" data-tab="triage">Triage</button>
+  <button role="tab" data-tab="spec">Spec</button>
+</nav>
+
+<main>
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Rack floor — inlet temperature</h2>
+      <small>Tap a rack for detail · refreshes every 2 s</small>
+    </div>
+    <div class="floor" id="floor"></div>
+    <div class="legend">
+      <span><i style="background:var(--heat0)"></i>&lt; 20 °C</span>
+      <span><i style="background:var(--heat1)"></i>20–24</span>
+      <span><i style="background:var(--heat2)"></i>24–27</span>
+      <span><i style="background:var(--heat3)"></i>27–30</span>
+      <span><i style="background:var(--heat4)"></i>&gt; 30 °C</span>
+      <span><i style="background:var(--surface-2)"></i>offline</span>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="panel">
+      <div class="panel-head"><h2 id="rackTitle">Rack A-01</h2><small id="rackMeta"></small></div>
+      <div class="chart-wrap"><canvas id="rackChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>AI insights</h2><small id="insightCount"></small></div>
+      <div id="insights"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Site IT load & PUE</h2><small>last 2 minutes</small></div>
+    <div class="chart-wrap"><canvas id="siteChart"></canvas></div>
+  </div>
+</section>
+
+<!-- INCIDENTS -->
+<section id="incidents" hidden>
+  <div class="panel">
+    <div class="panel-head"><h2>Open incidents</h2><small>auto-created by anomaly detection, correlated by zone</small></div>
+    <div id="openIncidents"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>Resolved</h2></div>
+    <div id="resolvedIncidents"></div>
+  </div>
+</section>
+
+<!-- CAPACITY -->
+<section id="capacity" hidden>
+  <div class="kpis" id="capKpis"></div>
+  <div class="panel">
+    <div class="panel-head"><h2>Power trend & forecast</h2><small>linear regression on the last 60 samples, projected 30 days</small></div>
+    <div class="chart-wrap"><canvas id="capChart"></canvas></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>Rack inventory</h2></div>
+    <div class="scroll"><table id="inv"><thead><tr><th>Rack</th><th>Zone</th><th>Servers</th><th>Load</th><th>Inlet</th><th>CPU</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- RUNBOOKS -->
+<section id="runbooks" hidden>
+  <div class="panel">
+    <div class="panel-head"><h2>Automated runbooks</h2><small>the copilot proposes one per incident; you approve before it runs</small></div>
+    <div id="runbookList"></div>
+  </div>
+</section>
+
+<!-- COPILOT -->
+<section id="copilot" hidden>
+  <div class="panel">
+    <div class="panel-head"><h2>Ask the ops copilot</h2><small>answers from live telemetry</small></div>
+    <div class="copilot">
+      <input id="q" placeholder="e.g. which rack is hottest?" aria-label="Question">
+      <button class="btn primary" id="ask">Ask</button>
+    </div>
+    <div class="chips">
+      <button data-q="which rack is hottest">hottest rack</button>
+      <button data-q="power forecast">power forecast</button>
+      <button data-q="open incidents">open incidents</button>
+      <button data-q="pue">PUE</button>
+      <button data-q="what should I do next">what next</button>
+    </div>
+    <div class="answer" id="answer">Ask about temperature, power, incidents, capacity or what to do next.</div>
+  </div>
+</section>
+
+<!-- TRIAGE (AI-spec): the model proposes; the application saves -->
+<section id="triage" hidden>
+  <div class="panel">
+    <div class="panel-head"><h2>Describe what you see</h2><small>The model drafts; you review; only Confirm opens an incident</small></div>
+    <div id="trHistory" class="trhist"></div>
+    <div class="copilot">
+      <textarea id="trText" rows="3" maxlength="2000" placeholder="e.g. C-01, C-03 and C-05 all reading 29°C since 14:10, CRAC-3 compressor alarm" aria-label="Symptom description"></textarea>
+    </div>
+    <div class="actions" style="margin-top:0">
+      <button class="btn primary" id="trSend">Send</button>
+      <span id="trCount" style="align-self:center;color:var(--muted);font-size:.8rem">0 of 19</span>
+      <button class="btn" id="trReset">Start over</button>
+    </div>
+    <div id="trReply" class="answer" style="margin-top:.7rem" hidden></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>Draft incident</h2><small id="trFlags"></small></div>
+    <div class="trform">
+      <label>Kind <select id="dKind"><option value="">—</option><option>thermal-zone</option><option>thermal-rack</option><option>cpu</option><option>psu</option><option>other</option></select></label>
+      <label>Key <input id="dKey" placeholder="zone letter or rack id"></label>
+      <label>Severity <select id="dSev"><option value="">—</option><option value="crit">critical</option><option value="warn">warning</option></select></label>
+      <label>Runbook <select id="dRb"><option value="">—</option><option value="rb-crac">Cooling failover</option><option value="rb-cpu">Contain runaway workload</option><option value="rb-psu">Restore rack power</option><option value="rb-airflow">Airflow check</option></select></label>
+      <label class="wide">Summary <input id="dSum"></label>
+      <label class="wide">Probable cause <input id="dRca"></label>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="trConfirm" disabled>Confirm and open incident</button>
+      <button class="btn" id="trManual">Edit manually</button>
+    </div>
+    <div id="trNote" class="empty"></div>
+  </div>
+</section>
+
+<!-- SPEC -->
+<section id="spec" hidden>
+  <div class="panel spec">
+    <div class="panel-head"><h2>Specification-driven build record</h2><small>the spec this console was built from</small></div>
+
+    <h3>1 · Specification</h3>
+    <p><b>Problem.</b> Hall 2 operators react to alarms one metric at a time; thermal and power events are spotted late and root cause takes hours.</p>
+    <p><b>Goal.</b> A web console that detects anomalies across racks, correlates them to a probable cause, and proposes a remediation the operator can approve in one tap.</p>
+    <p><b>User stories</b></p>
+    <ul>
+      <li>As a NOC engineer I see hall health at a glance so I know where to look first.</li>
+      <li>As a NOC engineer I get an incident with a probable root cause and confidence, not just a threshold alarm.</li>
+      <li>As a shift lead I approve an automated runbook and watch it execute step by step.</li>
+      <li>As a capacity planner I see when power will reach 80 % of design so I can order ahead.</li>
+    </ul>
+    <p><b>Acceptance criteria</b></p>
+    <ul>
+      <li>AC-1 Anomaly flagged within 3 samples when a metric exceeds 3 σ of its rolling baseline.</li>
+      <li>AC-2 ≥ 3 thermal anomalies in one zone are merged into a single CRAC incident.</li>
+      <li>AC-3 Runbooks require explicit approval; no auto-execution.</li>
+      <li>AC-4 Incident auto-resolves after 5 consecutive normal samples.</li>
+      <li>AC-5 Works on a phone (≥ 360 px) and respects system light/dark theme.</li>
+    </ul>
+
+    <h3>2 · Planning</h3>
+    <div class="stage"><span class="n">a</span><p>Decompose: telemetry simulator → rolling-stats anomaly detector → zone correlator → incident manager → runbook executor → UI.</p></div>
+    <div class="stage"><span class="n">b</span><p>Tools: single self-contained HTML, Chart.js for time series, no backend (telemetry is simulated in-page; swap <code>tick()</code> for a WebSocket feed from Prometheus/SNMP/DCIM).</p></div>
+    <div class="stage"><span class="n">c</span><p>Execution: build the data layer first, then detection, then UI; verify each AC with an injected fault.</p></div>
+
+    <h3>3 · Coding &amp; iteration</h3>
+    <p style="color:var(--muted)">Three injectable faults exercise every path: CRAC failure (correlation), runaway process (single-rack CPU), PSU loss (offline detection). Use the “Inject fault” control in the header.</p>
+
+    <h3>4 · Review &amp; validate</h3>
+    <ul>
+      <li>Security: no external calls, no stored credentials, runbooks are approval-gated.</li>
+      <li>Performance: 24 racks × 3 metrics at 0.5 Hz; charts update in place.</li>
+      <li>Compliance: all actions are logged in the incident timeline.</li>
+    </ul>
+
+    <h3>5 · Deployment</h3>
+    <p style="color:var(--muted)">Published as a hosted page. Next: connect real telemetry, add SSO, persist incidents to a ticketing system (ServiceNow/Jira), and route approvals to on-call.</p>
+  </div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+/* ---------- data model ---------- */
+const ZONES=['A','B','C','D'];
+const CAPACITY_KW=1200, RACK_SLOTS=32;
+const racks=[];
+ZONES.forEach(z=>{for(let i=1;i<=6;i++){
+  const servers=18+Math.floor(Math.random()*12);
+  racks.push({id:`${z}-0${i}`,zone:z,servers,
+    powerKw:+(servers*0.42+Math.random()*2).toFixed(1),
+    inletC:+(20+Math.random()*3).toFixed(1),
+    cpu:Math.round(35+Math.random()*30),
+    online:true,
+    hist:{inletC:[],cpu:[],powerKw:[]},anom:{inletC:0,cpu:0,offline:0}});
+}});
+const crac={A:'CRAC-1',B:'CRAC-2',C:'CRAC-3',D:'CRAC-4'};
+const site={load:[],pue:[],labels:[]};
+let fault=null;          // {type, target, t}
+let incidents=[]; let incSeq=100;
+let selected=racks[0];
+const WIN=20;
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const push=(arr,v,n=60)=>{arr.push(v);if(arr.length>n)arr.shift();};
+const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+const std=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/a.length);};
+const zscore=(hist,v)=>{if(hist.length<8)return 0;const base=hist.slice(0,-1);const s=std(base)||0.3;return (v-mean(base))/s;};
+const now=()=>new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function heat(c){return c<20?0:c<24?1:c<27?2:c<30?3:4;}
+
+/* ---------- telemetry simulator ---------- */
+let live=null, ws=null, token=null;
+function ingest(snap){
+  live=snap;
+  snap.racks.forEach(x=>{let r=racks.find(k=>k.id===x.id);
+    if(!r){r={id:x.id,zone:x.zone,servers:x.servers,powerKw:0,inletC:0,cpu:0,online:true,hist:{inletC:[],cpu:[],powerKw:[]},anom:{inletC:0,cpu:0,offline:0}};racks.push(r);}
+    Object.assign(r,{servers:x.servers,powerKw:x.powerKw,inletC:x.inletC,cpu:x.cpu,online:x.online});});
+}
+function connectFeed(){
+  const url=new URLSearchParams(location.search).get('ws')||((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/telemetry');
+  if(location.protocol==='file:'||location.host.endsWith('claude.ai'))return; // published demo: simulator only
+  try{ws=new WebSocket(url);}catch(e){return;}
+  ws.onmessage=e=>{try{ingest(JSON.parse(e.data));}catch(err){}};
+  ws.onopen=()=>{toast('Live telemetry connected');setInterval(()=>ws.readyState===1&&ws.send('ping'),15000);};
+  ws.onclose=()=>{live=null;toast('Feed lost — using simulator');setTimeout(connectFeed,5000);};
+}
+async function api(path,body){
+  if(!ws||ws.readyState!==1)return;
+  try{await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});}catch(e){}
+}
+function tick(){
+  if(live){racks.forEach(r=>{push(r.hist.inletC,r.inletC,WIN);push(r.hist.cpu,r.cpu,WIN);push(r.hist.powerKw,r.powerKw,WIN);});
+    push(site.load,live.itLoadKw);push(site.pue,live.pue??(site.pue.at(-1)||1.4));push(site.labels,now());
+    detect();autoResolve();render();return;}
+  racks.forEach(r=>{
+    if(fault&&fault.type==='psu'&&r.id===fault.target){r.online=false;r.powerKw=0;r.cpu=0;}
+    else{
+      r.online=true;
+      let tInlet=21.5, tCpu=r.cpu+(Math.random()-0.5)*4, tPow=r.servers*0.42+r.cpu*0.03;
+      if(fault&&fault.type==='crac'&&r.zone===fault.target) tInlet=21.5+Math.min(12,(Date.now()-fault.t)/1500);
+      if(fault&&fault.type==='cpu'&&r.id===fault.target) tCpu=97;
+      r.inletC=+(r.inletC+(tInlet-r.inletC)*0.25+(Math.random()-0.5)*0.4).toFixed(1);
+      r.cpu=Math.round(clamp(tCpu+(Math.random()-0.5)*3,5,100));
+      r.powerKw=+(tPow+(Math.random()-0.5)*0.6).toFixed(1);
+    }
+    push(r.hist.inletC,r.inletC,WIN);push(r.hist.cpu,r.cpu,WIN);push(r.hist.powerKw,r.powerKw,WIN);
+  });
+  const it=racks.reduce((s,r)=>s+r.powerKw,0);
+  const hot=racks.filter(r=>r.inletC>26).length;
+  const pue=1.38+hot*0.012+(Math.random()-0.5)*0.02;
+  push(site.load,+it.toFixed(1));push(site.pue,+pue.toFixed(3));push(site.labels,now());
+  detect(); autoResolve(); render();
+}
+
+/* ---------- AI: anomaly detection + correlation ---------- */
+function detect(){
+  racks.forEach(r=>{
+    if(!r.online){r.anom.offline++;return;} r.anom.offline=0;
+    const zt=zscore(r.hist.inletC,r.inletC), zc=zscore(r.hist.cpu,r.cpu);
+    r.anom.inletC=(zt>3||r.inletC>27)?r.anom.inletC+1:0;
+    r.anom.cpu=(zc>3||r.cpu>92)?r.anom.cpu+1:0;
+  });
+  // zone-level thermal correlation (AC-2)
+  ZONES.forEach(z=>{
+    const hot=racks.filter(r=>r.zone===z&&r.anom.inletC>=3);
+    if(hot.length>=3&&!open('thermal-zone',z)){
+      create({kind:'thermal-zone',key:z,sev:'crit',title:`Zone ${z} thermal excursion`,
+        summary:`${hot.length} racks in Zone ${z} rose above baseline together (${hot.map(r=>r.id).join(', ')}).`,
+        rca:`${crac[z]} is the only shared cooling dependency for these racks; a simultaneous rise across the zone points to CRAC degradation rather than a single server.`,
+        conf:0.91,runbook:'rb-crac',param:z});
+    }
+  });
+  racks.forEach(r=>{
+    const zoneInc=open('thermal-zone',r.zone);
+    if(r.anom.inletC>=3&&!zoneInc&&!open('thermal-rack',r.id)){
+      create({kind:'thermal-rack',key:r.id,sev:'warn',title:`${r.id} inlet temperature high`,
+        summary:`Inlet ${r.inletC} °C, ${(zscore(r.hist.inletC,r.inletC)).toFixed(1)} σ above its baseline.`,
+        rca:'Isolated to one rack with neighbours normal — likely blanking panel or local airflow obstruction.',conf:0.62,runbook:'rb-airflow',param:r.id});
+    }
+    if(r.anom.cpu>=3&&!open('cpu',r.id)){
+      create({kind:'cpu',key:r.id,sev:'warn',title:`${r.id} sustained CPU saturation`,
+        summary:`CPU ${r.cpu}% for ${r.anom.cpu} samples; power up ${(r.powerKw-mean(r.hist.powerKw)).toFixed(1)} kW.`,
+        rca:'Load is rack-local and power tracks it: consistent with a runaway process or batch job, not a cooling fault.',conf:0.84,runbook:'rb-cpu',param:r.id});
+    }
+    if(r.anom.offline>=2&&!open('psu',r.id)){
+      create({kind:'psu',key:r.id,sev:'crit',title:`${r.id} lost power — ${r.servers} servers offline`,
+        summary:'Power draw dropped to 0 kW and all hosts stopped reporting within one interval.',
+        rca:'A whole-rack drop with no preceding thermal or CPU signal is characteristic of an upstream PDU/PSU feed loss on the A side.',conf:0.88,runbook:'rb-psu',param:r.id});
+    }
+  });
+}
+function open(kind,key){return incidents.find(i=>i.kind===kind&&i.key===key&&!i.resolved);}
+function create(i){
+  i.id='INC-'+(incSeq++);i.opened=now();i.resolved=false;i.normal=0;i.log=[`${i.opened} · opened by anomaly detector (confidence ${Math.round(i.conf*100)} %)`];i.run=null;
+  incidents.unshift(i);toast(`${i.id} opened: ${i.title}`);
+  api('/api/v1/incidents',{id:i.id,kind:i.kind,key:i.key,sev:i.sev,title:i.title,summary:i.summary,rca:i.rca,conf:i.conf,runbook:i.runbook,opened:new Date().toISOString()});
+}
+function autoResolve(){
+  incidents.filter(i=>!i.resolved).forEach(i=>{
+    let ok=false;
+    if(i.kind==='thermal-zone') ok=racks.filter(r=>r.zone===i.key&&r.inletC>25).length===0;
+    else{const r=racks.find(x=>x.id===i.key);
+      ok=i.kind==='cpu'?r.cpu<80:i.kind==='psu'?r.online:r.inletC<25;}
+    i.normal=ok?i.normal+1:0;
+    if(i.normal>=5){i.resolved=true;i.closed=now();i.log.push(`${i.closed} · auto-resolved after 5 normal samples (AC-4)`);toast(`${i.id} resolved`);api(`/api/v1/incidents/${i.id}/resolve`,{});}
+  });
+}
+
+/* ---------- runbooks ---------- */
+const RUNBOOKS={
+  'rb-crac':{name:'Cooling failover',steps:['Confirm CRAC supply-air temp and compressor status','Raise setpoint on redundant CRAC in zone by −2 °C','Shift fan speed to 100 % on adjacent units','Page facilities tech with unit ID','Verify zone inlet temps return < 25 °C']},
+  'rb-cpu':{name:'Contain runaway workload',steps:['Identify top process on affected hosts','Throttle via cgroup to 60 % CPU','Notify workload owner','Migrate stateless pods to Zone A spare capacity','Confirm CPU < 80 % for 5 samples']},
+  'rb-psu':{name:'Restore rack power',steps:['Check A-feed breaker state on PDU','Fail hosts to B-feed where dual-corded','Dispatch on-site engineer','Power-on sequence with 10 s stagger','Confirm all hosts reporting']},
+  'rb-airflow':{name:'Airflow check',steps:['Inspect blanking panels and cable cut-outs','Verify perforated tile placement','Re-check inlet temp after 2 minutes']}
+};
+function startRunbook(inc){
+  if(inc.run)return;
+  const rb=RUNBOOKS[inc.runbook];
+  inc.run={step:0,done:false};
+  inc.log.push(`${now()} · operator approved "${rb.name}"`);api(`/api/v1/incidents/${inc.id}/log`,{text:`operator approved runbook ${rb.name}`});
+  toast(`Running ${rb.name}`);
+  const iv=setInterval(()=>{
+    inc.run.step++;
+    if(inc.run.step>=rb.steps.length){
+      clearInterval(iv);inc.run.done=true;
+      inc.log.push(`${now()} · runbook complete`);
+      if(fault&&(fault.target===inc.param||fault.target===inc.key))fault=null;
+      render();
+    } else render();
+  },1400);
+}
+
+/* ---------- charts ---------- */
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+Chart.defaults.font.family='"IBM Plex Sans", sans-serif';
+const baseOpts=()=>({responsive:true,maintainAspectRatio:false,animation:false,
+  plugins:{legend:{labels:{color:css('--muted'),boxWidth:10}}},
+  scales:{x:{ticks:{color:css('--muted'),maxTicksLimit:6},grid:{color:css('--line')}},
+          y:{ticks:{color:css('--muted')},grid:{color:css('--line')}}}});
+const rackChart=new Chart($('#rackChart'),{type:'line',data:{labels:[],datasets:[
+  {label:'Inlet °C',data:[],borderColor:css('--warn'),tension:.3,pointRadius:0,yAxisID:'y'},
+  {label:'CPU %',data:[],borderColor:css('--accent'),tension:.3,pointRadius:0,yAxisID:'y1'}]},
+  options:Object.assign(baseOpts(),{scales:{x:{ticks:{display:false},grid:{display:false}},
+    y:{min:15,max:40,ticks:{color:css('--muted')},grid:{color:css('--line')}},
+    y1:{position:'right',min:0,max:100,ticks:{color:css('--muted')},grid:{display:false}}}})});
+const siteChart=new Chart($('#siteChart'),{type:'line',data:{labels:[],datasets:[
+  {label:'IT load kW',data:[],borderColor:css('--accent'),tension:.3,pointRadius:0,yAxisID:'y'},
+  {label:'PUE',data:[],borderColor:css('--ok'),tension:.3,pointRadius:0,yAxisID:'y1'}]},
+  options:Object.assign(baseOpts(),{scales:{x:{ticks:{color:css('--muted'),maxTicksLimit:5},grid:{color:css('--line')}},
+    y:{ticks:{color:css('--muted')},grid:{color:css('--line')}},
+    y1:{position:'right',min:1.2,max:1.8,ticks:{color:css('--muted')},grid:{display:false}}}})});
+const capChart=new Chart($('#capChart'),{type:'line',data:{labels:[],datasets:[
+  {label:'Observed kW',data:[],borderColor:css('--accent'),tension:.2,pointRadius:0},
+  {label:'Forecast kW',data:[],borderColor:css('--warn'),borderDash:[5,4],tension:.2,pointRadius:0},
+  {label:'80 % threshold',data:[],borderColor:css('--crit'),borderWidth:1,pointRadius:0}]},
+  options:baseOpts()});
+
+/* ---------- capacity forecast (linear regression) ---------- */
+let driftBase=null;
+function forecast(){
+  // Treat the 60 live samples as a 60-day daily series with a slow growth drift for planning purposes.
+  if(!driftBase)driftBase=site.load[0]||700;
+  const y=site.load.map((v,i)=>v+i*1.8), n=y.length;
+  if(n<5)return null;
+  const xs=[...Array(n).keys()], xm=mean(xs), ym=mean(y);
+  const slope=xs.reduce((s,x,i)=>s+(x-xm)*(y[i]-ym),0)/xs.reduce((s,x)=>s+(x-xm)**2,0);
+  const icpt=ym-slope*xm;
+  const thr=CAPACITY_KW*0.8;
+  const daysTo=slope>0?Math.max(0,Math.round((thr-(icpt+slope*(n-1)))/slope)):Infinity;
+  return {y,slope,icpt,thr,daysTo,n};
+}
+
+/* ---------- render ---------- */
+function kpi(v,l,d,cls){return `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${d?`<div class="d ${cls||'flat'}">${d}</div>`:''}</div>`;}
+function render(){
+  $('#clock').textContent=now();
+  const openInc=incidents.filter(i=>!i.resolved);
+  const it=site.load.at(-1)||0, pue=site.pue.at(-1)||0;
+  const online=racks.filter(r=>r.online).reduce((s,r)=>s+r.servers,0), total=racks.reduce((s,r)=>s+r.servers,0);
+  const avgT=mean(racks.filter(r=>r.online).map(r=>r.inletC));
+  const prevIt=site.load.at(-6)||it;
+  $('#kpis').innerHTML=
+    kpi(`${it.toFixed(0)} kW`,'IT load',`${(it/CAPACITY_KW*100).toFixed(0)} % of design`,it>CAPACITY_KW*.8?'up':'flat')+
+    kpi(pue.toFixed(2),'PUE',pue>1.5?'above 1.5 target':'within target',pue>1.5?'up':'down')+
+    kpi(`${avgT.toFixed(1)} °C`,'Avg inlet',avgT>24?'trending warm':'ASHRAE A1 ok',avgT>24?'up':'down')+
+    kpi(`${online}/${total}`,'Servers online',online<total?`${total-online} unreachable`:'all reporting',online<total?'up':'down')+
+    kpi(openInc.length,'Open incidents',openInc.length?`${openInc.filter(i=>i.sev==='crit').length} critical`:'nothing open',openInc.length?'up':'down');
+
+  // floor
+  const f=$('#floor');
+  if(!f.children.length){
+    ZONES.forEach(z=>{const d=document.createElement('div');d.className='zone';d.innerHTML=`<h3>Zone ${z}<span>${crac[z]}</span></h3><div class="racks"></div>`;
+      racks.filter(r=>r.zone===z).forEach(r=>{const b=document.createElement('button');b.className='rack';b.dataset.id=r.id;b.setAttribute('aria-label',r.id);
+        b.addEventListener('click',()=>{selected=r;render();});d.querySelector('.racks').appendChild(b);});f.appendChild(d);});
+  }
+  racks.forEach(r=>{const b=f.querySelector(`[data-id="${r.id}"]`);
+    b.className='rack'+(r.online?' hot'+heat(r.inletC):' offline')+(selected===r?' selected':'');
+    b.innerHTML=`<b>${r.id}</b><span>${r.online?r.inletC+'°':'off'}</span>`;});
+
+  // selected rack
+  $('#rackTitle').textContent=`Rack ${selected.id}`;
+  $('#rackMeta').textContent=selected.online?`${selected.servers} servers · ${selected.powerKw} kW · CPU ${selected.cpu} %`:'offline';
+  rackChart.data.labels=selected.hist.inletC.map((_,i)=>i);
+  rackChart.data.datasets[0].data=selected.hist.inletC;rackChart.data.datasets[1].data=selected.hist.cpu;rackChart.update();
+  siteChart.data.labels=site.labels;siteChart.data.datasets[0].data=site.load;siteChart.data.datasets[1].data=site.pue;siteChart.update();
+
+  // insights
+  const ins=[];
+  openInc.forEach(i=>ins.push({sev:i.sev,t:`${i.id} · ${i.title}`,m:i.rca}));
+  const hottest=[...racks].filter(r=>r.online).sort((a,b)=>b.inletC-a.inletC)[0];
+  if(hottest&&hottest.inletC>24&&!openInc.length)ins.push({sev:'warn',t:`${hottest.id} is warmest at ${hottest.inletC} °C`,m:'Below alert threshold; watching for a sustained rise.'});
+  const fc=forecast();
+  if(fc&&fc.daysTo<60)ins.push({sev:fc.daysTo<30?'warn':'ok',t:`Power reaches 80 % of design in ~${fc.daysTo} days`,m:`Growth ${fc.slope.toFixed(1)} kW/day. Plan the next power upgrade or workload rebalance.`});
+  if(!ins.length)ins.push({sev:'ok',t:'Hall 2 is healthy',m:'No anomalies in the last window. Inject a fault from the header to exercise detection.'});
+  $('#insights').innerHTML=ins.map(i=>`<div class="insight ${i.sev}"><span class="sev"></span><div><div class="t">${i.t}</div><div class="m">${i.m}</div></div></div>`).join('');
+  $('#insightCount').textContent=`${ins.length} item${ins.length===1?'':'s'}`;
+
+  // incidents
+  const badge=$('#incBadge');badge.hidden=!openInc.length;badge.textContent=openInc.length;
+  const renderInc=i=>{const rb=RUNBOOKS[i.runbook];
+    const steps=i.run?`<ul class="steps">${rb.steps.map((s,k)=>`<li class="${k<i.run.step?'done':k===i.run.step&&!i.run.done?'run':''}">${k<i.run.step?'✓':k===i.run.step&&!i.run.done?'▶':'○'} ${s}</li>`).join('')}</ul>`:'';
+    return `<div class="incident ${i.sev}${i.resolved?' resolved':''}">
+      <div class="head"><div><b>${i.id}</b> ${i.title}</div><span class="pill ${i.resolved?'muted':i.sev}">${i.resolved?'resolved':i.sev==='crit'?'critical':'warning'}</span></div>
+      <div class="meta">opened ${i.opened}${i.closed?` · closed ${i.closed}`:''}</div>
+      <p style="margin:.4rem 0">${i.summary}</p>
+      <div class="rca"><b>Probable cause</b>${i.rca}<div style="margin-top:.3rem;font-size:.8rem;color:var(--muted)">confidence <span class="conf"><i style="width:${i.conf*100}%"></i></span> ${Math.round(i.conf*100)} %</div></div>
+      ${i.resolved?'':`<div class="actions"><button class="btn primary" data-run="${i.id}" ${i.run?'disabled':''}>${i.run?(i.run.done?'Runbook complete':'Running…'):'Approve runbook: '+rb.name}</button><button class="btn" data-ack="${i.id}">Acknowledge</button></div>`}
+      ${steps}
+      <details style="margin-top:.5rem;font-size:.8rem;color:var(--muted)"><summary>Timeline</summary>${i.log.map(l=>`<div>${l}</div>`).join('')}</details>
+    </div>`;};
+  $('#openIncidents').innerHTML=openInc.length?openInc.map(renderInc).join(''):'<div class="empty">No open incidents. Everything is within baseline.</div>';
+  const res=incidents.filter(i=>i.resolved);
+  $('#resolvedIncidents').innerHTML=res.length?res.map(renderInc).join(''):'<div class="empty">Nothing resolved yet this session.</div>';
+
+  // capacity
+  if(fc){
+    const usedSlots=racks.reduce((s,r)=>s+r.servers,0), slots=racks.length*RACK_SLOTS;
+    $('#capKpis').innerHTML=kpi(`${(it/CAPACITY_KW*100).toFixed(0)} %`,'Power used',`${it.toFixed(0)} of ${CAPACITY_KW} kW`)+
+      kpi(`${(usedSlots/slots*100).toFixed(0)} %`,'Rack space used',`${usedSlots} of ${slots} U`)+
+      kpi(fc.daysTo===Infinity?'—':`${fc.daysTo} d`,'To 80 % power',fc.daysTo<30?'order upgrade now':'comfortable',fc.daysTo<30?'up':'down')+
+      kpi(`${fc.slope.toFixed(1)} kW`,'Growth per day','regression on trend');
+    const H=30, labels=[], obs=[], fcs=[], thr=[];
+    for(let i=0;i<fc.n+H;i++){labels.push(i<fc.n?`d${i-fc.n+1}`:`+${i-fc.n+1}`);obs.push(i<fc.n?+fc.y[i].toFixed(0):null);
+      fcs.push(i>=fc.n-1?+(fc.icpt+fc.slope*i).toFixed(0):null);thr.push(fc.thr);}
+    capChart.data.labels=labels;capChart.data.datasets[0].data=obs;capChart.data.datasets[1].data=fcs;capChart.data.datasets[2].data=thr;capChart.update();
+  }
+  $('#inv tbody').innerHTML=racks.map(r=>`<tr><td>${r.id}</td><td>${r.zone}</td><td>${r.servers}</td><td>${r.powerKw} kW</td><td>${r.inletC} °C</td><td>${r.cpu} %</td>
+    <td><span class="pill ${!r.online?'crit':r.inletC>27||r.cpu>92?'warn':'ok'}">${!r.online?'offline':r.inletC>27?'hot':r.cpu>92?'saturated':'normal'}</span></td></tr>`).join('');
+
+  // runbooks
+  $('#runbookList').innerHTML=Object.entries(RUNBOOKS).map(([k,rb])=>{const linked=openInc.filter(i=>i.runbook===k);
+    return `<div class="runbook"><div class="head"><h3>${rb.name}</h3>${linked.length?`<span class="pill warn">proposed for ${linked.map(i=>i.id).join(', ')}</span>`:'<span class="pill muted">idle</span>'}</div><ol>${rb.steps.map(s=>`<li>${s}</li>`).join('')}</ol></div>`;}).join('');
+}
+
+/* ---------- ops copilot (rule-based over live state) ---------- */
+function answer(q){
+  q=q.toLowerCase();const openInc=incidents.filter(i=>!i.resolved);const fc=forecast();
+  const hottest=[...racks].filter(r=>r.online).sort((a,b)=>b.inletC-a.inletC)[0];
+  if(/hot|temp|warm/.test(q))return `${hottest.id} is warmest at ${hottest.inletC} °C (Zone ${hottest.zone}, ${crac[hottest.zone]}). Hall average is ${mean(racks.filter(r=>r.online).map(r=>r.inletC)).toFixed(1)} °C.`;
+  if(/pue|efficien/.test(q))return `PUE is ${site.pue.at(-1).toFixed(2)}. Target is 1.50; it rises when racks run above 26 °C because cooling works harder.`;
+  if(/power|forecast|capacity|growth/.test(q))return fc?`IT load is ${site.load.at(-1).toFixed(0)} kW (${(site.load.at(-1)/CAPACITY_KW*100).toFixed(0)} % of 1,200 kW). At ${fc.slope.toFixed(1)} kW/day you reach the 80 % planning line in about ${fc.daysTo} days.`:'Collecting samples — ask again in a few seconds.';
+  if(/incident|alert|open/.test(q))return openInc.length?openInc.map(i=>`${i.id} (${i.sev}) — ${i.title}. ${i.rca}`).join('\n\n'):'No open incidents. All racks are within their rolling baselines.';
+  if(/cpu|load|busy/.test(q)){const b=[...racks].filter(r=>r.online).sort((a,b)=>b.cpu-a.cpu)[0];return `${b.id} has the highest CPU at ${b.cpu} %. ${b.cpu>92?'That is saturation territory — check Incidents.':'Normal range.'}`;}
+  if(/next|do|should|recommend/.test(q)){
+    if(openInc.length){const i=openInc[0];return `Start with ${i.id}: ${i.title}. Approve "${RUNBOOKS[i.runbook].name}" in the Incidents tab — confidence ${Math.round(i.conf*100)} %.`;}
+    return fc&&fc.daysTo<30?`Nothing is burning. The capacity forecast is the real risk: ~${fc.daysTo} days to 80 % power. Start the upgrade request.`:'Nothing needs attention. Good time to run the airflow check on the warmest rack.';
+  }
+  if(/offline|down|unreach/.test(q)){const off=racks.filter(r=>!r.online);return off.length?`${off.map(r=>r.id).join(', ')} offline — ${off.reduce((s,r)=>s+r.servers,0)} servers unreachable.`:'All 24 racks are online.';}
+  return 'I can answer about temperature, PUE, power forecast, CPU load, open incidents, offline racks, or what to do next.';
+}
+
+/* ---------- AI triage (AI-spec): model proposes, application saves ---------- */
+const tr={history:[],draft:null,seq:0,sent:0,touched:false,user:'dev'};
+const F={kind:'dKind',key:'dKey',sev:'dSev',runbook:'dRb',summary:'dSum',probable_cause:'dRca'};
+function trDraftFromForm(){const d={};for(const k in F){const v=$('#'+F[k]).value.trim();d[k]=v===''?null:v;}return d;}
+function trRender(resp){
+  const d=resp?resp.draft:(tr.draft||{});
+  for(const k in F){const el=$('#'+F[k]);if(resp)el.value=d[k]??'';el.classList.toggle('null',!(el.value));}
+  const miss=resp?resp.missing_fields:[],clar=resp?resp.clarification_fields:[];
+  $('#trFlags').textContent=(miss.length?'missing: '+miss.join(', ')+' ':'')+(clar.length?'needs clarification: '+clar.join(', '):'');
+  $('#trHistory').innerHTML=tr.history.map(m=>`<div class="${m.role==='user'?'u':'a'}">${m.content.replace(/</g,'&lt;')}</div>`).join('');
+  $('#trCount').textContent=`${tr.sent} of 19`;
+  $('#trSend').disabled=tr.sent>=19;
+  const dd=trDraftFromForm();
+  $('#trConfirm').disabled=!(dd.kind&&dd.kind!=='other'&&dd.key&&dd.sev)||!tr.touched;
+  try{localStorage.setItem('dc-draft:'+tr.user,JSON.stringify({history:tr.history,draft:trDraftFromForm(),sent:tr.sent}));}catch(e){}
+}
+async function trSend(){
+  const text=$('#trText').value.trim();if(!text)return;
+  const mySeq=++tr.seq;tr.history.push({role:'user',content:text});tr.sent++;
+  $('#trSend').disabled=true;$('#trSend').textContent='Thinking…';tr.touched=false;trRender(null);
+  try{
+    const r=await fetch('/api/v1/ai/triage',{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},
+      body:JSON.stringify({text,draft:tr.draft,history:tr.history.slice(0,-1).slice(-18),context:{hall:'H2',now:new Date().toISOString()}})});
+    if(mySeq!==tr.seq||tr.touched){return;}  // stale reply after an operator edit: ignore
+    if(r.status===429){const j=await r.json();toast(j.detail+' — enter the incident manually');$('#trNote').textContent='Rate or budget limit reached. Use Edit manually.';return;}
+    if(!r.ok){toast('Triage unavailable — draft kept');$('#trNote').textContent='The model could not be reached. Your text and draft are kept; you can edit manually.';return;}
+    const j=await r.json();tr.draft=j.draft;tr.reqId=j.request_id;tr.changed=[];tr.history.push({role:'assistant',content:j.reply});
+    $('#trReply').hidden=false;$('#trReply').textContent=j.reply;tr.touched=true;trRender(j);$('#trText').value='';
+  }catch(e){toast('Triage unavailable — draft kept');$('#trNote').textContent='No backend reachable (published demo). Use Edit manually to open an incident from this form.';}
+  finally{$('#trSend').textContent='Send';$('#trSend').disabled=tr.sent>=19;}
+}
+async function trConfirm(){
+  const d=trDraftFromForm();if(!(d.kind&&d.key&&d.sev))return;
+  const id='INC-'+(incSeq++);
+  const inc={id,kind:d.kind,key:d.key,sev:d.sev,title:`${d.key} — ${d.kind}`,summary:d.summary||'',rca:d.probable_cause||'',conf:0.5,runbook:d.runbook||'rb-airflow',opened:now(),resolved:false,normal:0,log:[`${now()} · opened from operator triage`],run:null,param:d.key};
+  $('#trConfirm').disabled=true;
+  if(ws&&ws.readyState===1){
+    try{const r=await fetch('/api/v1/incidents',{method:'POST',headers:{'Content-Type':'application/json','X-Draft-Request-Id':tr.reqId||'','X-Draft-Fields-Changed':(tr.changed||[]).join(','),...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify({id,kind:d.kind,key:d.key,sev:d.sev,title:inc.title,summary:inc.summary,rca:inc.rca,conf:0.5,runbook:inc.runbook,opened:new Date().toISOString()})});
+      if(r.status!==201){$('#trNote').textContent='Save failed ('+r.status+'). Draft kept.';$('#trConfirm').disabled=false;return;}
+    }catch(e){$('#trNote').textContent='The save response never arrived — the incident may already exist. Check the Incidents tab before retrying.';return;}
+  }
+  incidents.unshift(inc);toast(`${id} opened from triage`);
+  tr.history=[];tr.draft=null;tr.sent=0;tr.touched=false;for(const k in F)$('#'+F[k]).value='';$('#trReply').hidden=true;$('#trNote').textContent='';
+  try{localStorage.removeItem('dc-draft:'+tr.user);}catch(e){}
+  trRender(null);render();document.querySelector('nav [data-tab="incidents"]').click();
+}
+$('#trSend').addEventListener('click',trSend);
+$('#trConfirm').addEventListener('click',trConfirm);
+$('#trManual').addEventListener('click',()=>{tr.touched=true;$('#trNote').textContent='Manual entry: fill kind, key and severity, then Confirm.';trRender(null);});
+$('#trReset').addEventListener('click',()=>{tr.history=[];tr.draft=null;tr.sent=0;tr.touched=false;tr.seq++;for(const k in F)$('#'+F[k]).value='';$('#trReply').hidden=true;$('#trNote').textContent='';try{localStorage.removeItem('dc-draft:'+tr.user);}catch(e){}trRender(null);});
+for(const k in F)$('#'+F[k]).addEventListener('input',()=>{tr.touched=true;tr.seq++;tr.changed=[...new Set([...(tr.changed||[]),k])];trRender(null);});
+try{const saved=JSON.parse(localStorage.getItem('dc-draft:'+tr.user)||'null');if(saved&&(saved.history?.length||saved.draft)){tr.history=saved.history||[];tr.sent=saved.sent||0;tr.draft=saved.draft;for(const k in F)$('#'+F[k]).value=saved.draft?.[k]??'';tr.touched=false;$('#trNote').textContent='Restored an unfinished draft. Review it before confirming.';trRender(null);}}catch(e){}
+
+/* ---------- wiring ---------- */
+document.querySelectorAll('nav [role=tab]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('nav [role=tab]').forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.querySelectorAll('main > section').forEach(s=>s.hidden=s.id!==b.dataset.tab);
+  try{localStorage.setItem('dc-tab',b.dataset.tab);}catch(e){}
+}));
+try{const t=localStorage.getItem('dc-tab');if(t)document.querySelector(`nav [data-tab="${t}"]`)?.click();}catch(e){}
+$('#faultSel').addEventListener('change',e=>{
+  const v=e.target.value;if(!v)return;
+  fault={type:v,target:v==='crac'?'C':v==='cpu'?'B-04':'D-02',t:Date.now()};
+  toast(`Fault injected: ${e.target.selectedOptions[0].text}`);e.target.value='';
+});
+document.addEventListener('click',e=>{
+  const run=e.target.closest('[data-run]');if(run){startRunbook(incidents.find(i=>i.id===run.dataset.run));return;}
+  const ack=e.target.closest('[data-ack]');if(ack){const i=incidents.find(x=>x.id===ack.dataset.ack);i.log.push(`${now()} · acknowledged by operator`);toast(`${i.id} acknowledged`);api(`/api/v1/incidents/${i.id}/log`,{text:'acknowledged by operator'});render();}
+});
+$('#ask').addEventListener('click',()=>{const q=$('#q').value.trim();if(q)$('#answer').textContent=answer(q);});
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')$('#ask').click();});
+document.querySelectorAll('.chips button').forEach(b=>b.addEventListener('click',()=>{$('#q').value=b.dataset.q;$('#ask').click();}));
+
+for(let i=0;i<12;i++)tick();
+connectFeed();
+setInterval(tick,2000);
+})();
+</script>
+</body>
+</html>

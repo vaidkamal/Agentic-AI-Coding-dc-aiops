@@ -1,0 +1,219 @@
+<title>DC-North AIOps Design Walkthrough</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* Layout: a single reading column (~68ch) with a left-hand decision ledger; one accent only, severity colors reserved for the ops vocabulary */
+:root{
+  --bg:#F5F7FA; --surface:#FFFFFF; --ink:#13203A; --muted:#5B6B85; --line:#D6DEE9;
+  --accent:#1F6FEB; --accent-soft:#E3EDFC;
+  --ok:#1B9E6A; --warn:#D98B00; --crit:#D63C3C;
+  --display:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  --body:"IBM Plex Sans",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0C1322; --surface:#141E33; --ink:#E4EBF6; --muted:#8A9BB8; --line:#2A3A57;
+  --accent:#4FB3FF; --accent-soft:#1A3457; --ok:#3DD598; --warn:#F5B942; --crit:#FF6B6B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1322; --surface:#141E33; --ink:#E4EBF6; --muted:#8A9BB8; --line:#2A3A57;
+  --accent:#4FB3FF; --accent-soft:#1A3457; --ok:#3DD598; --warn:#F5B942; --crit:#FF6B6B; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 4rem}
+.wrap{max-width:900px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);font-weight:600;line-height:1.2;margin:0;text-wrap:balance}
+h1{font-size:clamp(1.9rem,4.5vw,2.8rem)}
+h2{font-size:1.5rem;margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--line)}
+h3{font-size:1.15rem;margin-top:1.75rem}
+p{max-width:68ch;margin:.75rem 0}
+a{color:var(--accent)}
+.hero{padding-block:3rem 2rem}
+.hero p.lede{font-family:var(--display);font-size:1.2rem;color:var(--muted);font-style:italic;max-width:60ch}
+.links{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1.25rem;font-size:.95rem}
+.toc{margin:2rem 0 0;padding:1rem 1.25rem;background:var(--surface);border:1px solid var(--line);border-radius:8px;font-size:.95rem}
+.toc ol{margin:.4rem 0 0 1.2rem;padding:0;columns:2;column-gap:2rem}
+.toc li{break-inside:avoid;margin:.15rem 0}
+@media (max-width:600px){.toc ol{columns:1}}
+
+.decision{display:grid;grid-template-columns:150px 1fr;gap:1rem 1.5rem;margin:1.5rem 0;padding:1.25rem 0;border-top:1px dashed var(--line)}
+.decision:first-of-type{border-top:0}
+.decision .k{font-size:.85rem;color:var(--muted);line-height:1.4}
+.decision .k b{display:block;color:var(--ink);font-size:.95rem;font-family:var(--display)}
+.decision .v{min-width:0}
+.decision .v p{margin:.35rem 0}
+.decision .v p:first-child{margin-top:0}
+.rejected{font-size:.9rem;color:var(--muted)}
+.rejected span{text-decoration:line-through}
+@media (max-width:600px){.decision{grid-template-columns:1fr;gap:.4rem}}
+
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;margin:1.5rem 0;font-size:.85rem}
+.pipeline div{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.6rem .7rem;min-width:0}
+.pipeline b{display:block;font-family:var(--display);font-size:.95rem;margin-bottom:.2rem}
+.pipeline span{color:var(--muted)}
+@media (max-width:760px){.pipeline{grid-template-columns:1fr 1fr}}
+@media (max-width:420px){.pipeline{grid-template-columns:1fr}}
+
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin:1rem 0}
+th,td{text-align:left;padding:.5rem .5rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:.82rem}
+.tbl{overflow-x:auto}
+.sev{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:.4rem;vertical-align:0}
+.sev.ok{background:var(--ok)} .sev.warn{background:var(--warn)} .sev.crit{background:var(--crit)}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.88em;background:var(--accent-soft);padding:.05em .35em;border-radius:4px}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:1rem;overflow-x:auto;font-size:.85rem;line-height:1.5}
+pre code{background:none;padding:0}
+
+.qa{margin:1.25rem 0;padding-left:1rem;border-left:3px solid var(--accent)}
+.qa .q{font-family:var(--display);font-weight:600;margin:0}
+.qa .a{margin:.4rem 0 0;color:var(--ink)}
+.qa .a p{margin:.3rem 0}
+.tradeoff{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:1rem 1.25rem;margin:1rem 0}
+.tradeoff h3{margin-top:0;font-size:1.05rem}
+ul{padding-left:1.2rem}
+li{margin:.3rem 0}
+.foot{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <h1>DC-North AIOps: design decisions and interview preparation</h1>
+  <p class="lede">A web console for data-centre IT operations that turns 24 racks of raw telemetry into one correlated incident, a probable cause, and a runbook an operator approves in a single tap. Built the course way: four specs, a fifth AI spec, evaluation with a golden set, deployment with backup and restore, and architecture with decision records.</p>
+  <div class="links">
+    <a href="https://claude.ai/artifact/AyzdTkLw8VKj4WkuS2oM36">Deployed console</a>
+    <a href="https://claude.ai/artifact/NVFAkQE43FVurft3HymLqt">Architecture (C4, request paths, failure table)</a>
+    <a href="https://claude.ai/code/session_01B6WBDCn3ZQcBy6jiC5uLRX">Session transcript</a>
+  </div>
+  <nav class="toc" aria-label="Contents">
+    Contents
+    <ol>
+      <li><a href="#method">How the project was built, weekend by weekend</a></li>
+      <li><a href="#decisions">The design decisions</a></li>
+      <li><a href="#tradeoffs">Trade-offs I would defend</a></li>
+      <li><a href="#verify">How I verified it</a></li>
+      <li><a href="#interview">Interview preparation</a></li>
+      <li><a href="#next">What remains, honestly</a></li>
+    </ol>
+  </nav>
+</header>
+
+<h2 id="method">1. How the project was built</h2>
+<p>I was the architect; the coding harness was the contractor; the specs were the contract. Each weekend's method produced a named artefact in the repository, and nothing was marked done without evidence.</p>
+<div class="pipeline">
+  <div><b>Weekend 2 · SDD</b><span>Spec → Plan → Implement → Verify → Iterate; <code>CLAUDE.md</code>, <code>verify.sh</code>, permissions</span></div>
+  <div><b>Weekend 3 · four specs</b><span>goal · frontend · backend · api-contract; plan phases 0–9; then <code>AI-spec.md</code></span></div>
+  <div><b>Weekend 4 · test &amp; deploy</b><span>AC → check mapping, test the test, CI/CD, Terraform, backup before destroy</span></div>
+  <div><b>Weekend 5 · evals</b><span>observability spec + runbook, golden set T1–T8, codebook, judge rubric, baseline</span></div>
+  <div><b>Weekend 6 · design</b><span>C4 views, request paths, failure table, 12 ADRs, interview questions</span></div>
+</div>
+<p>The repository follows the trainer's reference layout: three snapshots of the specification set, one per stage.</p>
+<pre><code>CLAUDE.md                     project instructions the coding agent reads every session
+.claude/settings.json         agent may run verify/pytest; may not edit specs or the checks
+specs/                        goal · frontend · backend · api-contract · implementation-plan (phases 0–9)
+specs_with_AI_feature/        + AI-spec.md (fifth spec); revision-2 sections appended to the four
+specs_with_AI_Evals/          + observability-spec · observability-runbook · ai-implementation-plan
+evals/                        golden/cases.json T1–T8 · run_cases.py (--mock / --live) · codebook · judge rubric · review table · baseline
+backend/                      FastAPI; adapters; auth; integrations; ai/ (triage, budget, ratelimit, tracing); tests/ (73)
+frontend/index.html           console, including the Triage tab
+scripts/verify.sh             definition of done: ruff · pytest · evals --mock · no-write-path grep · CDN hosts
+deploy/                       Terraform · backup/destroy/restore/demo-tunnel scripts · deployment brief · release runbook
+.github/workflows/            ci.yml · deploy.yml (OIDC → ECR → migration task → ECS → smoke)
+docs/                         design-decisions.md (12 ADRs) · interview-questions.md · OPEN-QUESTIONS.md · test-the-test.md
+transcripts/                  session log and link to the raw session</code></pre>
+
+<h2 id="decisions">2. The design decisions</h2>
+<p>Each entry: what I chose, what I rejected, and why. Full records with consequences and revisit-when conditions are in <code>docs/design-decisions.md</code>.</p>
+
+<div class="decision"><div class="k"><b>Detection method</b>Rolling z-score, window 20, plus absolute ceilings</div><div class="v">
+<p>Each metric is compared to its own last 20 samples; three sigma above baseline flags an anomaly. Ceilings (27 °C per ASHRAE A1, 92 % CPU) catch slow drifts that would poison the baseline.</p>
+<p class="rejected">Rejected: <span>isolation forest</span> (needs training data and a backend), <span>EWMA control charts</span> (harder to explain). A z-score produces a sentence the operator can read.</p></div></div>
+
+<div class="decision"><div class="k"><b>Correlate before alarming</b>Zone pass first; per-rack suppressed</div><div class="v">
+<p>Three or more racks rising together in a zone open one CRAC incident; per-rack thermal detectors are suppressed while it is open. The CRAC is the only shared dependency inside a zone.</p>
+<p class="rejected">Rejected: <span>one alarm per rack with a grouping view</span>: that is the problem the goal spec describes.</p></div></div>
+
+<div class="decision"><div class="k"><b>Human approves, agent executes</b>Runbooks are approval-gated; nothing is actuated</div><div class="v">
+<p><code>startRunbook</code> is reachable only from the Approve button; runbook steps page people and tools. Blast radius (Weekend 1) set the oversight level, not the agency level.</p>
+<p class="rejected">Rejected: <span>auto-remediate above a confidence threshold</span>. Revisit after 100 observed approvals with zero reversals, with a dry-run mode first.</p></div></div>
+
+<div class="decision"><div class="k"><b>Explainable incidents</b>Cause, evidence and a confidence number on every incident</div><div class="v">
+<p><code>rca</code>, <code>summary</code> and <code>conf</code> are part of the contract. Confidence is a rule constant (0.91 zone-thermal, 0.84 rack-CPU, 0.88 PSU, 0.62 single hot rack), and the UI and ADR-04 say so.</p></div></div>
+
+<div class="decision"><div class="k"><b>Detection in the browser</b>The backend feeds, authenticates and persists</div><div class="v">
+<p>24 racks at 0.5 Hz is trivial for a browser; the published demo runs with no backend; the reviewer reads one file. Revisit at more than one hall.</p>
+<p class="rejected">Rejected: <span>stream processor</span>; <span>Prometheus alert rules only</span> (cannot correlate across a zone).</p></div></div>
+
+<div class="decision"><div class="k"><b>One telemetry contract</b>Adapters conform; the console never adapts</div><div class="v">
+<p><code>Snapshot</code> is fixed in the API contract. The Prometheus adapter's PromQL is overridable per site because exporter metric names differ everywhere. A malformed snapshot is dropped and logged, never broadcast.</p></div></div>
+
+<div class="decision"><div class="k"><b>Feed loss degrades, announced</b>Simulator fallback with a toast and <code>/healthz</code></div><div class="v">
+<p>Simulated data must never masquerade as real, so the fallback is always announced and reconnects every 5 s.</p></div></div>
+
+<div class="decision"><div class="k"><b>The AI feature is one model call</b>Structured output, no tools, no loop, no runtime agent</div><div class="v">
+<p>Weekend 6 flowchart: rules cannot parse free text (Hinglish, corrections) → test a model. Does it need evidence beyond the input? No: the note, the zone/CRAC map and the runbook catalogue suffice. So: <code>POST /ai/triage</code>, one <code>AsyncAnthropic</code> call with a declared response model, post-validation in code, 20 s timeout, 1,024 tokens, no retries.</p>
+<p class="rejected">Rejected: <span>an agent with a telemetry-lookup tool</span> (no evidence it is needed yet; revisit if ≥ 20 % of real notes need live data), <span>rule-based parser</span>, <span>fine-tuning</span>.</p></div></div>
+
+<div class="decision"><div class="k"><b>The model proposes; the application saves</b>No write path from the AI module</div><div class="v">
+<p>The triage response carries no incident id and no permission to write. The console tracks confirmation; <code>POST /incidents</code> is the only write and is called with the exact reviewed fields. A test asserts that <code>backend/ai/</code> references nothing that writes; adding such a reference turns the build red (verified by mutation).</p></div></div>
+
+<div class="decision"><div class="k"><b>Limits in code, not in token caps</b>Budget reserve/settle, rate limit, 429 with a reason</div><div class="v">
+<p>Token caps bound one call, not monthly spend. Reserve before, settle after, against <code>AI_MONTHLY_BUDGET_USD</code>; 10 requests/min/user, documented as process-local.</p></div></div>
+
+<div class="decision"><div class="k"><b>Observability through OpenTelemetry to Phoenix</b>Off by default; the gap is visible</div><div class="v">
+<p>Five named spans per triage call plus a separate <code>incident.save</code> trace linked by request id; API key and bearer redacted; <code>/healthz</code> reports <code>tracing: off</code> when no collector is set.</p></div></div>
+
+<div class="decision"><div class="k"><b>Golden set and deterministic checks first; judge second</b>The expert approves the rule; the agent implements the check</div><div class="v">
+<p>Eight cases chosen by dimension (zone vs rack, typo ids, vague, Hinglish correction, pasted log, below threshold, injection). Mocked checks run in CI and never pay for a model call; live runs ask for budget approval; the judge rubric covers only the two semantic criteria and must be calibrated against expert labels before it is trusted.</p></div></div>
+
+<div class="decision"><div class="k"><b>Deployment with recovery proof</b>ECS Fargate + RDS via Terraform; backup before destroy</div><div class="v">
+<p><code>destroy.sh</code> takes a manual RDS snapshot and aborts the destroy if the snapshot fails. <code>restore.sh</code> rebuilds from the snapshot, triggers the deploy workflow, and greps the API for a known <code>INC-nnn</code>. Cloudflare Quick Tunnel is the alternative for a temporary demo of the local app.</p>
+<p class="rejected">Rejected: <span>Render/Fly.io</span> (less control over the restore exercise), <span>Kubernetes</span> (more than one hall needs).</p></div></div>
+
+<h2 id="tradeoffs">3. Trade-offs I would defend</h2>
+<div class="tradeoff"><h3>Simplicity over sophistication in the models</h3><p>Every analytic can be explained in one sentence and recomputed by hand. In operations, a model nobody trusts is a model nobody uses. Heavier methods can replace them behind the same incident contract once there is history to train on.</p></div>
+<div class="tradeoff"><h3>Minimal viable agent for the AI feature</h3><p>A single call with structured output solves the task the spec describes. Adding a tool or a loop without evaluation evidence would be complexity without a reason, and it would widen the authority surface I have deliberately kept at zero.</p></div>
+<div class="tradeoff"><h3>In-memory incident store in v1</h3><p>The ticketing system is the record in v1. This is also the one place the specs and the code disagree today (backend-spec requires PostgreSQL); it is recorded as blocking Phase 7's restore proof, not hidden. T16 is the next task.</p></div>
+
+<h2 id="verify">4. How I verified it</h2>
+<div class="tbl"><table>
+  <thead><tr><th>Requirement</th><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Goal-spec success criterion (CRAC failure → one Zone C incident → approve → resolve)</td><td>Inject fault; manual walk-through</td><td>One incident, confidence 91 %, resolved after 5 normal samples</td></tr>
+    <tr><td>API contract (201/409/404/409-on-resolved/401, enums → 422)</td><td><code>pytest tests/test_api.py</code></td><td>9 passed</td></tr>
+    <tr><td>AI-1…AI-8 (shape, normalisation, classification, injection, bounds, budget, correction, no write path)</td><td><code>pytest tests/test_ai_triage.py</code> with frozen fixtures</td><td>33 passed; mutation on the write path turns it red</td></tr>
+    <tr><td>OBS-1…OBS-3 (spans, redaction, tracing status)</td><td><code>pytest tests/test_tracing.py</code> with in-memory exporter</td><td>10 passed</td></tr>
+    <tr><td>Golden set T1–T8</td><td><code>python evals/run_cases.py --mock</code></td><td>0 failures / 8 assessed (mocked; live baseline pending budget approval)</td></tr>
+    <tr><td>Definition of done</td><td><code>./scripts/verify.sh</code></td><td>GREEN: ruff, 73 tests, evals, no-write-path grep, CDN hosts</td></tr>
+    <tr><td>Test the test</td><td>Three deliberate faults (docs/test-the-test.md)</td><td>Each turned a check red, then green on restore</td></tr>
+    <tr><td>Deployment scaffold</td><td><code>bash -n</code>, YAML parse, <code>tofu fmt</code>, HCL reference check</td><td>Clean; <code>terraform validate</code> and apply pending an AWS account</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="interview">5. Interview preparation</h2>
+<p>I wrote 25 questions that can only be answered by understanding the code (<code>docs/interview-questions.md</code>) and answered them without opening the repo. The ones I expect most:</p>
+
+<div class="qa"><p class="q">Trace one operator note to a saved incident. Which call writes?</p><div class="a"><p><code>POST /api/v1/ai/triage</code> returns a draft, missing fields and a reply; it writes nothing. The operator edits and confirms; the console calls <code>POST /api/v1/incidents</code> with the exact reviewed fields and two headers linking the save to the triage trace. The model is not called at that step.</p></div></div>
+
+<div class="qa"><p class="q">Why not an agent for triage?</p><div class="a"><p>The two flowcharts: rules cannot parse free text, so a model; the model does not need evidence beyond the input, so one call. An agent would add authority and cost without a measured benefit. The revisit condition is written down: if evaluation shows notes need live telemetry to classify, compare one bounded tool call against the baseline on the same cases.</p></div></div>
+
+<div class="qa"><p class="q">What happens when the provider times out?</p><div class="a"><p>503 after 20 s, no SDK retry, the draft is preserved client-side, manual entry is offered, and nothing is ever replayed automatically. The same rule applies to a lost save response: the operator is told the incident may already exist and to check the Incidents tab.</p></div></div>
+
+<div class="qa"><p class="q">Where is the authority boundary and which test guards it?</p><div class="a"><p>All writes require a bearer token; the model has no write path; runbooks do not actuate. The import-boundary test fails if <code>backend/ai/</code> references the incident router. I verified that by adding the reference and watching it go red.</p></div></div>
+
+<div class="qa"><p class="q">Give one example where the spec was fixed before the code.</p><div class="a"><p>The builder found that <code>kind: "other"</code> with <code>clarification_fields: ["kind"]</code> contradicted the contract's "union equals null fields" invariant. I amended the contract and the AI spec to say "not catalogued counts as unresolved" and only then accepted the code. Another: the contract said <code>/api/v1</code> and the code served <code>/api</code>; the code moved, with a dated deprecated alias.</p></div></div>
+
+<div class="qa"><p class="q">Why does CI run only the mocked evaluation?</p><div class="a"><p>Mocked checks protect logic and cost nothing; live evaluation tests behaviour with the real provider and costs money, so it runs on request with an explicit budget approval and before accepting a prompt or model change. A judge is used only for the two semantic criteria and only after calibration against expert labels.</p></div></div>
+
+<div class="qa"><p class="q">What survives teardown?</p><div class="a"><p>The RDS snapshot, Terraform state and the database password, each retained separately. ECR is recreated empty so the image is re-published; CloudFront gets a new hostname so the console config is updated; tokens come from the IdP so nothing is regenerated. The proof is the same <code>INC-nnn</code> with its original <code>opened</code> timestamp after rebuild; today that proof is blocked by the in-memory store, and the plan says so.</p></div></div>
+
+<div class="qa"><p class="q">What did the agent get wrong, and how did you catch it?</p><div class="a"><p>Three things. The first package shipped without spec files. The workspace was recycled between sessions and the code had to be recreated from the session record, which taught me to commit after every turn. And the builders reported eleven spec-versus-code questions rather than patching around them; each got a decision and the affected documents were updated before the code changed.</p></div></div>
+
+<h2 id="next">6. What remains, honestly</h2>
+<ul>
+  <li>T16: persist incidents to PostgreSQL so Phase 7's restore proof can run.</li>
+  <li>Phase 9.6b: live baseline on T1–T8 with Phoenix notes (estimated US$0.06), then open and axial coding on real traces.</li>
+  <li>Phases 4–6: Terraform apply and the first deploy run need an AWS account; a Cloudflare tunnel demo is the fallback for the review.</li>
+  <li>Hill-climb one failure category with the prompt's rules section as the only movable part; then compare model and effort settings on the same cases.</li>
+  <li>CRAC supply-temperature series as direct evidence for the zone rule.</li>
+</ul>
+
+<p class="foot">Built October 2026 with an agentic coding harness under the IISc "Agentic AI Coding" method. Console, architecture page, repository and transcript are linked at the top.</p>
+</div>

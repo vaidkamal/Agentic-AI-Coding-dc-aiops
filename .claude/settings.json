@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/verify.sh)",
+      "Bash(pytest*)",
+      "Bash(python -m pytest*)",
+      "Bash(docker compose*)",
+      "Bash(ruff*)"
+    ],
+    "deny": [
+      "Edit(specs/**)",
+      "Edit(specs_with_AI_feature/**)",
+      "Edit(specs_with_AI_Evals/**)",
+      "Edit(scripts/verify.sh)",
+      "Edit(.claude/settings.json)",
+      "Edit(evals/golden/**)"
+    ]
+  }
+}
