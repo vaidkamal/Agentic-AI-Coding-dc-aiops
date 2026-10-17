@@ -312,7 +312,7 @@ Items 1 and 4 need only code; items 2 and 3 need the API key and the AWS account
 
 Full guide: [`deploy/production-rollout.md`](deploy/production-rollout.md). The POC proves the design and the method; the steps below are how to earn the evidence in a real data centre, one bounded step at a time. The rule throughout: **observe and advise before paging anyone; never actuate equipment.**
 
-### 10.1 Readiness gaps to close first
+### 12.1 Readiness gaps to close first
 | Area | POC | Production needs |
 |---|---|---|
 | Incident store | In-memory | PostgreSQL with backups (T16) |
@@ -322,18 +322,18 @@ Full guide: [`deploy/production-rollout.md`](deploy/production-rollout.md). The 
 | Telemetry | Sample PromQL | Site exporters labelled `rack`,`zone`; CRAC supply temperature and compressor state |
 | Network | — | Management network only; firewall review proving no path to BMS/PDU write interfaces |
 
-### 10.2 What the data centre provides
+### 12.2 What the data centre provides
 Inlet temperature per rack (environmental probes via BMS/DCIM or SNMP), CPU per host (`node_exporter`), power per rack (intelligent PDUs via `snmp_exporter`), host up/down, facility power for PUE, CRAC state from the BMS; an OIDC app with `roles` claim; a ticketing service account; a named owner (shift lead) and a facilities contact.
 
-### 10.3 Configuration
+### 12.3 Configuration
 Everything by environment from a secret manager (`.env.example` lists every key): `ENV=production`, `TELEMETRY_ADAPTER=prometheus` with site-validated `PROM_Q_*`, `AUTH_MODE=oidc`, `DATABASE_URL`, `TICKETING=servicenow|jira`, and the model key only once AI triage is approved by security.
 
-### 10.4 Deployment profiles
+### 12.4 Deployment profiles
 - **On-prem (recommended first):** Docker Compose or a Kubernetes namespace on the management network; 2 backend replicas; site Postgres; TLS at the reverse proxy.
 - **AWS:** `deploy/terraform/` (ECS Fargate, RDS, ECR, CloudFront), GitHub Actions deploy via OIDC; see `deploy/deployment-brief.md` and `deploy/runbook-release.md`.
 Same container image either way, built once in CI from a tag.
 
-### 10.5 Phased rollout with exit criteria
+### 12.5 Phased rollout with exit criteria
 | Phase | Runs | Exit criterion |
 |---|---|---|
 | P1 Replay | Detector on recorded Prometheus data incl. one known thermal event | Known event → exactly one zone incident; thresholds tuned and recorded |
@@ -344,8 +344,23 @@ Same container image either way, built once in CI from a tag.
 
 Rollback at any phase: `TICKETING=none`, runbooks off, console read-only. Nothing in the hall changes, because nothing was ever actuated.
 
-### 10.6 Go-live checklist (P4)
-T16 live and one restore drill passed · detector server-side · RBAC verified with a test user · ticketing verified against the site instance · CRAC telemetry wired or deferred with the lower confidence documented · thresholds tuned on replay data · runbook steps mapped to real notifications, no actuation · security review signed · owner named · specs updated for every decision.
+### 12.6 Go-live checklist (P4)
+P4 is the first phase in which the system pages people and runbook steps call real integrations for the whole hall. Every box must be ticked, with the evidence named, before the change ticket for P4 is approved.
+
+| # | Item | What it means | Evidence |
+|---|---|---|---|
+| 1 | T16 live and one restore drill passed | Incidents are in PostgreSQL, not memory; `backup.sh → destroy.sh → restore.sh INC-nnn` has returned the known incident with its original `opened` timestamp | `restore.sh` output PASS, dated |
+| 2 | Detector server-side | One backend worker per hall emits incidents; every operator's console shows the same list | Two browsers, same incident ids and timestamps |
+| 3 | RBAC verified | Only `dc-shift-lead` can approve a runbook; operators and read-only users cannot | Test user per role; approve attempt logged as denied |
+| 4 | Ticketing verified against the site instance | Open, work note and close succeed in the real ServiceNow/Jira project and assignment group | One test incident visible in the ticketing UI |
+| 5 | CRAC telemetry wired, or deferred in writing | Supply temperature and compressor state per zone feed the zone rule; if not available, the lower confidence (0.91) is documented and accepted by the owner | PromQL returns the series, or a signed deferral note |
+| 6 | Thresholds tuned on replay data | Window, σ and the 27 °C / 92 % ceilings were set against the hall's recorded month including a known event; values and dates recorded | Research note with the numbers and the false-positive rate |
+| 7 | Runbook steps mapped to real notifications; no actuation | Each step pages a person or creates a task; no step changes cooling, power or network | Review of every runbook step; firewall rules show no write path to BMS/PDU |
+| 8 | Security review signed | Management-network placement, secrets in the secret manager, OIDC role mapping, model-provider egress (if AI triage is enabled), log retention | Signed review record |
+| 9 | Owner named | A shift lead owns approvals and the weekly incident sample review | Name and calendar entry for the weekly review |
+| 10 | Specs updated for every decision | backend-spec §8–9, api-contract snapshot (if `crac` added), implementation plan phases 10+ reflect the decisions above | Commit ids |
+
+Rollback from P4: `TICKETING=none`, runbooks disabled, console read-only; nothing in the hall changes because nothing was ever actuated.
 
 ## 13. Tools
 
