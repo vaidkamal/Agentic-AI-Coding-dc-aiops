@@ -108,14 +108,34 @@ Deployment: `deploy/deployment-brief.md` (services, permissions, cost drivers, w
 
 ## 8. What remains
 
-- T16: persist incidents to PostgreSQL → unblocks Phase 7 restore proof.
-- Phase 9.6b: live baseline on T1–T8 with Phoenix notes (≈ US$0.06), then open and axial coding on real traces, one hill-climb round on the prompt's rules section, model/effort comparison.
-- Phases 4–6: Terraform apply and first deploy on an AWS account (Cloudflare tunnel is the fallback for the demo).
-- CRAC supply-temperature series as direct evidence for the zone rule.
+Everything above this line has evidence; everything below has a plan and a named blocker.
+
+| # | Work | Why it is open | Blocker | How to finish | Evidence of completion |
+|---|---|---|---|---|---|
+| 1 | **T16 — persist incidents to PostgreSQL** | The backend keeps incidents in a Python dict; a restart loses them and the ticket is the only durable copy. backend-spec requires PostgreSQL. Until then Phase 7 (backup → destroy → rebuild → same `INC-nnn` returns) cannot be proven, so the plan marks it *blocked*, not *done*. | Code only | Add SQLAlchemy + Alembic; tables `incidents`, `incident_events`, `runbook_runs`, `ai_spend`; `DATABASE_URL` from env (SQLite local, RDS cloud); replace the dict with repository functions; API contract unchanged; add a restart test. | `docker compose down && up` → `GET /api/v1/incidents` still returns the incident; contract tests stay green. |
+| 2 | **Phase 9.6b — live evaluation** | T1–T8 have only run in mock mode, which proves the checking logic, not the model's behaviour. | `ANTHROPIC_API_KEY` (≈ US$0.06 for 8 calls) | `phoenix serve`; set `PHOENIX_COLLECTOR_ENDPOINT`; `python evals/run_cases.py --live` (asks for `y`); then runbook §C–H: one Phoenix note per observation (open coding), group into the codebook (axial coding), one hill-climb round on the prompt's rules section, model/effort comparison, keep the cheapest config that still passes. | `evals/baseline.md` replaced by live results with Phoenix links; `ai-implementation-plan.md` rows 9.6b–9.8 dated done. |
+| 3 | **Phases 4–6 — deploy to AWS** | Terraform, deploy workflow and backup/restore scripts are written and syntax-checked; nothing exists in a cloud account yet. | AWS account (≈ US$75/month while running) | One-time S3 + DynamoDB state bootstrap (`deploy/terraform/backend.tf`); GitHub secrets `AWS_DEPLOY_ROLE_ARN`, `ALB_URL`, `SMOKE_TOKEN`; `terraform init/plan/apply`; push to `main`; point the console at the CloudFront URL; with T16 done run `backup.sh` → `destroy.sh` → `restore.sh INC-nnn`; destroy again so nothing is left running. Demo fallback: `deploy/scripts/demo-tunnel.sh`. | Phase 4: drift-free apply, ALB answers 503. Phase 5: `/healthz` 200 on the ALB, smoke incident created and resolved. Phase 6: incident created from the hosted page. Phase 7: `restore.sh` prints PASS. |
+| 4 | **CRAC supply-temperature series** | The zone rule infers a CRAC failure indirectly (≥ 3 racks hot together). The CRAC itself is not measured, so confidence stays at 0.91 and a rack-level CPU incident is masked during a zone excursion (ADR-02 revisit-when). | Real sensors; simulator version is code only | Spec first: add `crac` to the snapshot contract (`supplyC`, `compressor: on/off/alarm` per zone) and a rule row (zone incident on ≥ 3 hot racks *or* CRAC alarm + ≥ 1 hot rack; confidence 0.97 when evidence agrees); simulator emits it and the fault injection flips the alarm; `PROM_Q_CRAC` in the adapter; console shows it in the zone header and the incident evidence line. | Inject CRAC failure → incident opens on the first hot rack plus the alarm with the higher confidence; a single hot rack without an alarm still opens only a rack-level warning. |
+
+Items 1 and 4 need only code; items 2 and 3 need the API key and the AWS account.
 
 ## 9. Tools
 
-Claude (agentic coding harness: specs, console, backend, evals, deploy scaffold, with two parallel builder agents for the AI feature and the deployment), Anthropic API for the triage model, FastAPI, Chart.js, pytest, ruff, OpenTelemetry + Arize Phoenix, Terraform, GitHub Actions, AWS (ECS Fargate, RDS, ECR, CloudFront), Cloudflare Quick Tunnels.
+| Tool | Role in the project | Where |
+|---|---|---|
+| **Claude** (agentic coding harness) | The contractor. Drafted the specs from my intent, wrote the console and backend, built the evals and deploy scaffold, and reported spec-versus-code conflicts instead of patching around them. Two parallel builder agents worked at the same time: one on the AI triage feature, tests and evals; one on Terraform, workflows and backup/restore. | Whole repo; `CLAUDE.md` is what it reads every session |
+| **Anthropic API** | The runtime model inside the product: one bounded call per triage note that returns a structured draft. Independent of the harness above; a coding agent can build a product with no runtime AI at all. | `backend/ai/triage.py`, `specs_with_AI_feature/AI-spec.md` |
+| **FastAPI** | The backend: WebSocket telemetry feed, incident API, OIDC auth, ticket sync, triage endpoint. | `backend/app.py` |
+| **Chart.js** | Time-series charts in the console: rack inlet/CPU, site load/PUE, capacity forecast. | `frontend/index.html` |
+| **pytest** | 73 tests: API contract, AI-1…AI-8, OBS-1…OBS-3, the no-write-path guard. | `backend/tests/` |
+| **ruff** | Linter; first step of the definition of done. | `scripts/verify.sh`, `ruff.toml` |
+| **OpenTelemetry + Arize Phoenix** | Observability: one trace per model call with named spans; Phoenix is the local UI for reading traces and adding human labels during evaluation. | `backend/ai/tracing.py`, `specs_with_AI_Evals/observability-spec.md`, `observability-runbook.md` |
+| **Terraform** | AWS infrastructure as code; remote state in S3 + DynamoDB; snapshot before destroy. | `deploy/terraform/` |
+| **GitHub Actions** | CI on every push (lint, tests, mocked evals); deploy on `main` via OIDC → ECR → migration task → ECS → smoke test; manual trigger for recovery. | `.github/workflows/` |
+| **AWS** (ECS Fargate, RDS, ECR, CloudFront) | Fargate runs the backend container, RDS PostgreSQL holds incidents, ECR stores images, CloudFront provides HTTPS in front of the load balancer. Scaffolded, not yet applied. | `deploy/terraform/main.tf`, `deploy/deployment-brief.md` |
+| **Cloudflare Quick Tunnels** | Temporary public URL for the local app, for a demo without a cloud account. | `deploy/scripts/demo-tunnel.sh` |
+
+Claude in the first row is AI *in development*; the Anthropic API in the second row is AI *in the product*. The course treats those as independent choices, and the ADRs record why each was made.
 
 ## License
 
