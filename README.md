@@ -146,17 +146,92 @@ Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, 
 | **AI insights** | One line per open incident with its probable cause; the warmest rack when nothing is open; a warning when power will reach 80 % of design within 60 days | Decide where to look first. |
 | **Site chart** | IT load and PUE over the last two minutes | Spot a hall-wide drift. |
 
-**Incidents tab.** Open incidents first (critical on top, left stripe by severity), resolved below. Each card: id, title, severity pill, opened/closed time, evidence line, **probable cause with confidence** (a rule constant, e.g. 91 % for a zone-wide rise), then two buttons. **Approve runbook: <name>** starts the catalogued steps; they tick off one by one and every step is logged with your name. **Acknowledge** records that you have seen it. The incident resolves itself after five consecutive normal samples; the ticket closes. Expand **Timeline** to see open → acknowledged → approved → steps → resolved with timestamps. Nothing runs without Approve, and no step actuates equipment: steps page people and tools.
+**The three fault injections (header menu).** Each makes the simulated hall misbehave in one specific way so detection, correlation, approval and resolution can be watched without touching equipment. After choosing one, the menu resets and a toast confirms the injection.
 
-**Capacity tab.** Power used, rack space used, days to the 80 % planning line (least-squares regression on the load series), growth per day; the chart shows observed load, a dashed 30-day forecast and the red planning line; the inventory table lists every rack with a status pill (normal / hot / saturated / offline).
+| Option | Simulates | What you see | Proves |
+|---|---|---|---|
+| CRAC unit failure (Zone C) | The cooling unit for Zone C stops; all six racks warm together (~1 °C per 1.5 s) | Zone C tiles go orange then red; after three hot samples **one** incident "Zone C thermal excursion" (critical, 91 %), no per-rack alarms; runbook *Cooling failover* | Zone correlation: many racks, one cause, one incident |
+| Runaway process (rack B-04) | One rack's CPU pins at ~97 % and its power rises | Incident "B-04 sustained CPU saturation" (warning, 84 %), cause "load is rack-local and power tracks it"; runbook *Contain runaway workload* | Single-rack path; 92 % CPU ceiling |
+| PSU feed loss (rack D-02) | Rack D-02 loses power: 0 kW, all hosts stop reporting | Tile greyed and struck through; "servers online" KPI drops; after two samples incident "D-02 lost power — N servers offline" (critical, 88 %); runbook *Restore rack power* | Offline detection and the critical path |
 
-**Runbooks tab.** The catalogue: Cooling failover, Contain runaway workload, Restore rack power, Airflow check, each with ordered steps and whether it is currently proposed for an open incident.
+Approve the proposed runbook; when its last step completes the fault clears, metrics return to normal, and after five normal samples the incident resolves. One full cycle takes about a minute. On a real hall this menu does not exist; validation uses replayed historical data (rollout phase P1).
 
-**Ops copilot tab.** Type a question (hottest rack, PUE, power forecast, open incidents, CPU, offline racks, what to do next) or tap a chip; answers are computed from the live state, not from a language model, so they cannot invent a rack.
+**Site IT load and PUE (Overview chart).** *IT load* is the power drawn by the computing equipment, the sum of all rack PDUs in kW, against the 1,200 kW design; it also feeds the capacity forecast. *PUE* (Power Usage Effectiveness) is total facility power ÷ IT power; 1.0 would be perfect, enterprise halls run 1.4–1.8, the target here is 1.50. They share one chart because they move together: when racks run hot the CRAC units work harder, facility power rises while IT power does not, and PUE climbs. Rising load with flat PUE means more useful work; flat load with rising PUE means energy going into cooling trouble. On a real site PUE needs a facility-power meter (`PROM_Q_FACILITY`); without one the console shows it as unavailable rather than inventing a value.
 
-**Triage tab (AI feature).** Describe what you see in plain English or Latin-script Hinglish ("C-01, C-03 and C-05 all at 29 °C since 14:10, CRAC-3 compressor alarm"). The model drafts kind, key, severity, runbook, summary and probable cause; fields it could not resolve are highlighted and listed as *missing* or *needs clarification*. Edit any field. **Confirm and open incident** is enabled only when kind, key and severity are set and you have reviewed the draft; it creates the incident exactly as shown. **Edit manually** lets you open an incident without the model; **Start over** clears the draft. If the model is unavailable or over budget, the draft is kept and manual entry still works. On GitHub Pages there is no backend, so Send reports "no backend reachable" and manual entry is the path. The model never writes anything; only your Confirm does.
+**Heatmap legend.** Six bands: blue < 20 °C · light blue 20–24 · amber 24–27 · orange 27–30 · red > 30 °C · grey = offline. Tiles above 27 °C switch to white text; the selected rack has a blue outline. Zone headers show the CRAC unit each zone depends on (A → CRAC-1 … D → CRAC-4).
 
-**Spec tab.** The original specification record (goal, plan, acceptance criteria) for anyone auditing what the console was built to do.
+**KPI sub-labels.** Each tile carries a one-line judgement under the number: IT load "n % of design" (red above 80 %); PUE "within target" / "above 1.5 target"; Avg inlet "ASHRAE A1 ok" / "trending warm" (above 24 °C); Servers online "all reporting" / "n unreachable"; Open incidents "nothing open" / "n critical".
+
+**AI insights panel.** Up to three kinds of line: one per open incident (id, title, probable cause, striped by severity); "<rack> is warmest at n °C, below alert threshold" when nothing is open and a rack is above 24 °C; "Power reaches 80 % of design in ~n days" when the forecast is under 60 days (amber under 30). When there is nothing to say it says "Hall 2 is healthy" and suggests injecting a fault.
+
+**Incidents tab.**
+| Element | Meaning | Action |
+|---|---|---|
+| Open incidents / Resolved panels | Open ones first, critical on top with a red left stripe, warnings with amber; resolved ones below, faded | — |
+| Card header | `INC-nnn` and title; pill *critical* / *warning* / *resolved* | — |
+| Meta line | "opened hh:mm:ss" and, once closed, "closed hh:mm:ss" | — |
+| Evidence line | What was measured: racks involved, °C above baseline, CPU %, kW change | Read before approving |
+| Probable cause box | Plain-language cause and a confidence bar with the percentage (91 % zone thermal, 88 % PSU, 84 % rack CPU, 62 % single hot rack) | Decide whether the cause is plausible |
+| **Approve runbook: <name>** | Starts the catalogued steps. Button text changes to "Running…" (disabled) and finally "Runbook complete" | The only way a runbook runs |
+| **Acknowledge** | Records "acknowledged by operator" in the timeline and the ticket; nothing else changes | Use when you have seen it but are not acting yet |
+| Steps list (after approval) | ✓ done · ▶ current · ○ pending, one step every 1.4 s in the simulator | Watch progress |
+| Timeline (collapsed) | Every event with timestamp: opened by detector (confidence), acknowledged, approved "<runbook>", runbook complete, auto-resolved after 5 normal samples | Audit trail; mirrored as ticket work notes when ticketing is on |
+| Empty states | "No open incidents. Everything is within baseline." / "Nothing resolved yet this session." | — |
+
+**Capacity tab.**
+| Element | Meaning |
+|---|---|
+| Power used | IT load as % of 1,200 kW, with "n of 1,200 kW" |
+| Rack space used | Occupied U as % of 24 racks × 32 U |
+| To 80 % power | Days until the 960 kW planning line; "order upgrade now" under 30 days, "comfortable" otherwise; "—" if load is not growing |
+| Growth per day | Slope of the least-squares regression on the load series, kW/day |
+| Chart | Solid line observed kW (the last 60 samples treated as 60 days), dashed line 30-day forecast, thin red line at 80 % |
+| Rack inventory table | Rack, zone, servers, load kW, inlet °C, CPU %, status pill: *normal* / *hot* (> 27 °C) / *saturated* (> 92 % CPU) / *offline* |
+
+**Runbooks tab.** The catalogue; each entry shows a pill *idle* or *proposed for INC-nnn* and its ordered steps. Steps page people and tools; none actuates equipment.
+| Runbook | Proposed for | Steps |
+|---|---|---|
+| Cooling failover | Zone thermal incident | Confirm CRAC supply-air temp and compressor status → Raise setpoint on redundant CRAC by −2 °C → Shift fan speed to 100 % on adjacent units → Page facilities tech with unit id → Verify zone inlet temps return < 25 °C |
+| Contain runaway workload | Rack CPU incident | Identify top process on affected hosts → Throttle via cgroup to 60 % CPU → Notify workload owner → Migrate stateless pods to Zone A spare capacity → Confirm CPU < 80 % for 5 samples |
+| Restore rack power | Rack PSU incident | Check A-feed breaker state on PDU → Fail hosts to B-feed where dual-corded → Dispatch on-site engineer → Power-on sequence with 10 s stagger → Confirm all hosts reporting |
+| Airflow check | Single hot rack | Inspect blanking panels and cable cut-outs → Verify perforated tile placement → Re-check inlet temp after 2 minutes |
+
+**Ops copilot tab.** A question box, an **Ask** button (Enter also works) and five chips: *hottest rack*, *power forecast*, *open incidents*, *PUE*, *what next*. Answers are computed from the live state by keyword, not by a language model, so they cannot invent a rack:
+| You ask about | You get |
+|---|---|
+| hot / temperature / warm | Warmest rack, its zone and CRAC, hall average inlet |
+| PUE / efficiency | Current PUE, the 1.50 target, why it rises when racks run hot |
+| power / forecast / capacity / growth | IT load, % of design, kW/day, days to the 80 % line |
+| incident / alert / open | Each open incident with severity and cause, or "no open incidents" |
+| CPU / load / busy | Highest-CPU rack and whether it is in saturation territory |
+| offline / down / unreachable | Offline racks and unreachable server count, or "all 24 racks online" |
+| next / do / should / recommend | The first open incident and its runbook to approve; otherwise the capacity risk or an airflow check |
+| anything else | A list of what it can answer |
+
+**Triage tab (AI feature).**
+| Element | Options / behaviour |
+|---|---|
+| "Describe what you see" text area | Up to 2,000 characters; English or Latin-script Hinglish; pasted alarm lines are fine and are treated as data, never as instructions |
+| **Send** | Calls the model once; shows "Thinking…" while waiting; the counter "n of 19" tracks messages in this conversation; at 19 Send is disabled and you finish manually or start over |
+| **Start over** | Clears conversation, draft and stored draft |
+| Conversation history | Your messages right-aligned (blue), model replies left-aligned (grey) |
+| Reply bubble | The model's one-line explanation or its question for a field it could not resolve |
+| Draft form — Kind | thermal-zone · thermal-rack · cpu · psu · other · — |
+| Draft form — Key | Zone letter (A–D) or rack id `Z-NN`; typos like `D-2` are normalised to `D-02` |
+| Draft form — Severity | critical · warning · — |
+| Draft form — Runbook | Cooling failover · Contain runaway workload · Restore rack power · Airflow check · — |
+| Draft form — Summary, Probable cause | Free text; the summary keeps your timestamps and device names verbatim |
+| Field highlighting and flags | Fields the model left empty are outlined amber; the line above the form lists "missing: …" and "needs clarification: …" |
+| **Confirm and open incident** | Enabled only when kind (not *other*), key and severity are set **and** you have reviewed the draft (sent or edited); creates the incident exactly as the form shows and jumps to Incidents |
+| **Edit manually** | Skip the model: fill kind, key and severity yourself and confirm |
+| Messages you may see | "Triage unavailable — draft kept" (model unreachable; edit manually); "rate limited" / "budget exhausted" (429; manual path still works); "The save response never arrived — the incident may already exist. Check the Incidents tab before retrying." (never auto-retried); "Restored an unfinished draft. Review it before confirming." (after a reload); on GitHub Pages: "No backend reachable (published demo). Use Edit manually." |
+| What the model can never do | Open, approve or resolve anything. Only Confirm writes, and it sends the exact reviewed fields plus a header linking the save to the model's request id for the audit trace |
+
+**Spec tab.** Read-only: the original problem, goal, user stories, acceptance criteria and the five-stage plan the console was first built from. For auditors; nothing to operate.
+
+**Notifications (toasts).** Short messages at the bottom of the screen: "Fault injected: …", "INC-nnn opened: …", "Running <runbook>", "INC-nnn acknowledged", "INC-nnn resolved", "INC-nnn opened from triage", "Live telemetry connected", "Feed lost — using simulator", "Triage unavailable — draft kept".
+
+**Behaviour you can rely on.** The last tab you used is remembered on reload; the page follows the system light/dark theme; it works at phone width (zones wrap to two per row); the pulse dot next to the clock stops animating when the OS asks for reduced motion.
 
 **Walk-through for a first-time user (two minutes).** Overview → Inject fault → "CRAC unit failure (Zone C)" → watch Zone C tiles turn orange then red → Incidents badge shows 1 → open it, read the cause ("CRAC-3 is the only shared cooling dependency…") → Approve runbook → steps tick → tiles cool → incident moves to Resolved → expand Timeline. Then open Triage and type a symptom.
 
