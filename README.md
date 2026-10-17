@@ -62,13 +62,39 @@ evals/                        golden/cases.json · run_cases.py · codebook.md �
 scripts/verify.sh             definition of done
 deploy/                       terraform/ · scripts/ · deployment-brief.md · runbook-release.md · production-rollout.md
 .github/workflows/            ci.yml · deploy.yml
-docs/                         design-decisions.md (12 ADRs) · interview-questions.md · OPEN-QUESTIONS.md · test-the-test.md
+docs/                         architecture.md · design-decisions.md (12 ADRs) · interview-questions.md · OPEN-QUESTIONS.md · test-the-test.md
 transcripts/                  session log + link to the raw session
 dc-aiops-architecture.html    architecture page (GitHub Pages)
 index.html                    GitHub Pages landing page
 ```
 
-## 5. Run it
+## 5. Architecture
+
+Full version with diagrams: [`docs/architecture.md`](docs/architecture.md) (Markdown, renders on GitHub) and the [HTML page](https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/dc-aiops-architecture.html). Decisions: [`docs/design-decisions.md`](docs/design-decisions.md).
+
+```mermaid
+flowchart LR
+  OP[NOC engineer] -->|watches, approves| CON[Console<br/>heatmap · detector · correlator · runbooks · triage UI]
+  CON <-->|WebSocket snapshots / REST| BE[Backend FastAPI<br/>adapters · auth · incidents · ticket sync · ai/triage]
+  PROM[Prometheus<br/>node · PDU · env] --> BE
+  BE --> PG[(PostgreSQL)]
+  BE --> TKT[ServiceNow / Jira]
+  BE --> IDP[OIDC IdP]
+  BE -. one bounded call .-> LLM[Model API]
+```
+
+| Layer | Responsibility | Owns |
+|---|---|---|
+| Console (`frontend/index.html`) | Floor heatmap, z-score detection, zone correlation, runbook catalogue, triage draft review | Detection logic, the Approve button |
+| Backend (`backend/`) | Telemetry adapters → one snapshot shape; OIDC; incident API with timeline; ticket sync; `/ai/triage` with rate limit, budget, tracing | Every write and every model call |
+| Database | Incidents, events, runbook runs, AI spend (in-memory in the POC, PostgreSQL in production) | The incident record |
+| Prometheus | Telemetry history | — |
+
+Two request paths matter. **Telemetry → runbook:** adapter → broadcast → detect → correlate (≥ 3 hot racks in a zone = one CRAC incident) → `POST /incidents` → operator approves → steps page people and tools → auto-resolve after 5 normal samples. **Free-text triage → incident:** `POST /ai/triage` returns a draft and no permission to write → operator edits and confirms → `POST /incidents` with the exact reviewed fields; the model is not called at that step and a test proves the AI module cannot reach the write path.
+
+Authority: any authenticated operator may open, note and resolve; approving a runbook is logged with the actor (role restriction planned for production); nobody — human or model — can actuate cooling or power, because no such endpoint exists.
+
+## 6. Run it
 
 ```bash
 cp .env.example .env            # simulator, dev auth, no ticketing, no AI key needed for the console
@@ -83,7 +109,7 @@ Deployment: `deploy/deployment-brief.md` (services, permissions, cost drivers, w
 
 Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, what the DC must provide, configuration, on-prem and AWS profiles, five-phase rollout with exit criteria, go-live checklist).
 
-## 6. Verification evidence
+## 7. Verification evidence
 
 | Requirement | Check | Result |
 |---|---|---|
@@ -95,7 +121,7 @@ Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, 
 | Test the test | three deliberate faults | each went red, then green on restore |
 | Deployment scaffold | `bash -n`, YAML parse, `tofu fmt`, HCL reference check | clean; `terraform validate` and apply pending an AWS account |
 
-## 7. What I learned
+## 8. What I learned
 
 1. **The spec is the contract, and it must be a file.** My first package shipped with the spec living inside a tab of the app. The next engineer could not open it. Nothing was "spec-driven" until `specs/` existed.
 2. **A criterion is a sentence with a command attached.** "Works on mobile" is a hope; "no horizontal scroll at 360 px" and `pytest -k bounds` are criteria. Every acceptance criterion in `AI-spec.md` names its command.
@@ -108,7 +134,7 @@ Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, 
 9. **Commit after every turn.** The cloud workspace was recycled between sessions and the code had to be recreated from the session record. Git is the memory the harness does not have.
 10. **Keep ownership.** I can explain the request path, who may change data, what happens when the provider is slow or wrong, and why each choice was made. That, not the line count, is what the agentic workflow delivers.
 
-## 8. What remains
+## 9. What remains
 
 Everything above this line has evidence; everything below has a plan and a named blocker.
 
@@ -121,7 +147,46 @@ Everything above this line has evidence; everything below has a plan and a named
 
 Items 1 and 4 need only code; items 2 and 3 need the API key and the AWS account.
 
-## 9. Tools
+## 10. Production rollout: from POC to a live hall
+
+Full guide: [`deploy/production-rollout.md`](deploy/production-rollout.md). The POC proves the design and the method; the steps below are how to earn the evidence in a real data centre, one bounded step at a time. The rule throughout: **observe and advise before paging anyone; never actuate equipment.**
+
+### 10.1 Readiness gaps to close first
+| Area | POC | Production needs |
+|---|---|---|
+| Incident store | In-memory | PostgreSQL with backups (T16) |
+| Detection | In each browser | One backend worker per hall so all operators see the same incidents |
+| Runbooks | Steps simulated in the console | Steps that page people / create tasks through real integrations |
+| Authorisation | Any operator approves | Role `dc-shift-lead` required to approve |
+| Telemetry | Sample PromQL | Site exporters labelled `rack`,`zone`; CRAC supply temperature and compressor state |
+| Network | — | Management network only; firewall review proving no path to BMS/PDU write interfaces |
+
+### 10.2 What the data centre provides
+Inlet temperature per rack (environmental probes via BMS/DCIM or SNMP), CPU per host (`node_exporter`), power per rack (intelligent PDUs via `snmp_exporter`), host up/down, facility power for PUE, CRAC state from the BMS; an OIDC app with `roles` claim; a ticketing service account; a named owner (shift lead) and a facilities contact.
+
+### 10.3 Configuration
+Everything by environment from a secret manager (`.env.example` lists every key): `ENV=production`, `TELEMETRY_ADAPTER=prometheus` with site-validated `PROM_Q_*`, `AUTH_MODE=oidc`, `DATABASE_URL`, `TICKETING=servicenow|jira`, and the model key only once AI triage is approved by security.
+
+### 10.4 Deployment profiles
+- **On-prem (recommended first):** Docker Compose or a Kubernetes namespace on the management network; 2 backend replicas; site Postgres; TLS at the reverse proxy.
+- **AWS:** `deploy/terraform/` (ECS Fargate, RDS, ECR, CloudFront), GitHub Actions deploy via OIDC; see `deploy/deployment-brief.md` and `deploy/runbook-release.md`.
+Same container image either way, built once in CI from a tag.
+
+### 10.5 Phased rollout with exit criteria
+| Phase | Runs | Exit criterion |
+|---|---|---|
+| P1 Replay | Detector on recorded Prometheus data incl. one known thermal event | Known event → exactly one zone incident; thresholds tuned and recorded |
+| P2 Shadow | Live telemetry; incidents created; no tickets, no pages | 2 weeks; weekly sample reviewed; precision target agreed in writing met |
+| P3 One zone | Tickets on for one zone; runbooks notify-only | 4 weeks; ticket noise acceptable; approvals audited; nothing missed that an operator caught first |
+| P4 Full hall | All zones; runbook steps call integrations; AI triage optional | Monthly review; forecast compared with facilities' numbers |
+| P5 Steady state | Weekly fresh-trace sampling; quarterly threshold review; restore drill every 6 months | `restore.sh` returns a known incident |
+
+Rollback at any phase: `TICKETING=none`, runbooks off, console read-only. Nothing in the hall changes, because nothing was ever actuated.
+
+### 10.6 Go-live checklist (P4)
+T16 live and one restore drill passed · detector server-side · RBAC verified with a test user · ticketing verified against the site instance · CRAC telemetry wired or deferred with the lower confidence documented · thresholds tuned on replay data · runbook steps mapped to real notifications, no actuation · security review signed · owner named · specs updated for every decision.
+
+## 11. Tools
 
 | Tool | Role in the project | Where |
 |---|---|---|
