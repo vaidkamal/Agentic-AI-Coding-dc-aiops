@@ -2,6 +2,9 @@
 
 <!-- Weekend 3, Lecture 5: data and rules. The browser can bypass its checks; the server enforces these. -->
 
+## 0. Architecture description standard
+The architecture of this system is described per **ISO/IEC/IEEE 42010** using **C4** structural views, **UML sequence and deployment** views (Mermaid), **ADRs** for decisions, **OpenAPI** for the interface and **STRIDE** for threats; see `docs/architecture.md` §0 for the full list and `docs/design-decisions.md` for the records. Any change to a view or a decision is made in those documents first, then in code.
+
 ## 1. Responsibilities
 The backend feeds telemetry, authenticates operators, persists incidents, and syncs tickets. It does **not** run detection in v1 (detection runs in the console against the same contract). It never actuates equipment.
 

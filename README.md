@@ -124,29 +124,121 @@ Three snapshots, as in the course reference project: each stage keeps the previo
 
 ## 5. Architecture
 
-Full version with diagrams: [`docs/architecture.md`](docs/architecture.md) (Markdown, renders on GitHub) and the [HTML page](https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/dc-aiops-architecture.html). Decisions: [`docs/design-decisions.md`](docs/design-decisions.md).
+**Standard and notation.** Described per ISO/IEC/IEEE 42010 with C4 structural views, UML sequence and deployment views drawn in Mermaid, ADRs for decisions, OpenAPI for the interface contract and STRIDE for threats. The full mapping is in [`docs/architecture.md`](docs/architecture.md) §0; the complete document is [`docs/architecture.md`](docs/architecture.md) and the [HTML page](https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/dc-aiops-architecture.html); decisions are in [`docs/design-decisions.md`](docs/design-decisions.md).
 
+### 5.1 C4 level 1: context
 ```mermaid
 flowchart LR
-  OP[NOC engineer] -->|watches, approves| CON[Console<br/>heatmap · detector · correlator · runbooks · triage UI]
-  CON <-->|WebSocket snapshots / REST| BE[Backend FastAPI<br/>adapters · auth · incidents · ticket sync · ai/triage]
-  PROM[Prometheus<br/>node · PDU · env] --> BE
-  BE --> PG[(PostgreSQL)]
-  BE --> TKT[ServiceNow / Jira]
-  BE --> IDP[OIDC IdP]
-  BE -. one bounded call .-> LLM[Model API]
+  OP[NOC engineer<br/>shift lead · planner] -->|watches, approves| SYS[DC-North AIOps<br/>console + backend]
+  PROM[Prometheus<br/>node · SNMP PDU · env sensors] -->|telemetry| SYS
+  SYS -->|bearer token validation| IDP[Identity provider<br/>OIDC · JWKS]
+  SYS -->|open · work note · close| TKT[ServiceNow / Jira]
+  SYS -.->|one bounded call per triage note, optional| LLM[Anthropic model API]
 ```
 
-| Layer | Responsibility | Owns |
+### 5.2 C4 level 2: containers
+```mermaid
+flowchart TB
+  subgraph Browser
+    CON[Console · frontend/index.html<br/>heatmap · z-score detector · zone correlator<br/>runbook catalogue · triage draft review]
+  end
+  subgraph Backend["Backend · FastAPI"]
+    AD[adapters/<br/>simulator · prometheus] --> PL[poll_loop<br/>validate · broadcast]
+    AU[auth · OIDC JWKS]
+    IR[incidents router<br/>create · log · resolve]
+    TK[integrations/<br/>servicenow · jira]
+    AI[ai/<br/>triage · budget · ratelimit · tracing]
+  end
+  CON <-->|WebSocket snapshots| PL
+  CON -->|REST /api/v1| IR
+  CON -->|POST /ai/triage| AI
+  IR --> PG[(PostgreSQL<br/>incidents · events · runs · ai_spend)]
+  IR --> TK
+  AI --> PHX[Phoenix collector<br/>optional]
+  AI -. no import path .-> IR
+```
+
+| Container | Responsibility | Owns |
 |---|---|---|
-| Console (`frontend/index.html`) | Floor heatmap, z-score detection, zone correlation, runbook catalogue, triage draft review | Detection logic, the Approve button |
-| Backend (`backend/`) | Telemetry adapters → one snapshot shape; OIDC; incident API with timeline; ticket sync; `/ai/triage` with rate limit, budget, tracing | Every write and every model call |
-| Database | Incidents, events, runbook runs, AI spend (in-memory in the POC, PostgreSQL in production) | The incident record |
+| Console | Floor heatmap, detection, zone correlation, runbook catalogue, triage draft review | Detection logic, the Approve button |
+| Backend | Telemetry adapters → one snapshot shape; OIDC; incident API with timeline; ticket sync; `/ai/triage` with rate limit, budget, tracing | Every write and every model call |
+| Database | Incidents, events, runbook runs, AI spend (in-memory in the POC; PostgreSQL in production, T16) | The incident record |
 | Prometheus | Telemetry history | — |
 
-Two request paths matter. **Telemetry → runbook:** adapter → broadcast → detect → correlate (≥ 3 hot racks in a zone = one CRAC incident) → `POST /incidents` → operator approves → steps page people and tools → auto-resolve after 5 normal samples. **Free-text triage → incident:** `POST /ai/triage` returns a draft and no permission to write → operator edits and confirms → `POST /incidents` with the exact reviewed fields; the model is not called at that step and a test proves the AI module cannot reach the write path.
+### 5.3 Runtime view: telemetry → approved runbook
+```mermaid
+sequenceDiagram
+  participant A as Adapter
+  participant B as Backend
+  participant C as Console
+  participant D as DB + ticket
+  A->>B: snapshot (24 racks)
+  B->>C: WebSocket push
+  C->>C: z-score per metric; ceilings 27 °C / 92 %
+  C->>C: ≥ 3 hot racks in a zone → one CRAC incident
+  C->>B: POST /api/v1/incidents
+  B->>D: insert; open ticket
+  Note over C: operator taps Approve
+  C->>B: POST /incidents/{id}/log "approved runbook …" (actor from token)
+  C->>C: steps page people and tools; nothing actuated
+  C->>B: POST /incidents/{id}/resolve after 5 normal samples
+  B->>D: resolved; ticket closed
+```
 
-Authority: any authenticated operator may open, note and resolve; approving a runbook is logged with the actor (role restriction planned for production); nobody — human or model — can actuate cooling or power, because no such endpoint exists.
+### 5.4 Runtime view: free-text triage → saved incident
+```mermaid
+sequenceDiagram
+  participant C as Console
+  participant B as Backend
+  participant M as Model API
+  participant D as DB + ticket
+  C->>B: 1 POST /api/v1/ai/triage {text, draft, history}
+  B->>B: rate limit · budget reserve · trace
+  B->>M: 2 rules + note (as data) · 20 s · 1,024 tokens · no retry
+  M-->>B: 3 structured draft
+  B->>B: validate · normalise ids · budget settle
+  B-->>C: 4 draft, missing_fields, clarification_fields, reply
+  Note over C: 5 operator edits and confirms (no model call)
+  C->>B: 6 POST /api/v1/incidents (exact reviewed fields, X-Draft-Request-Id)
+  B->>D: 7 insert; open ticket
+  B-->>C: 8 201 Incident
+```
+Steps 1–4 never write. Step 6 is the only write; the model is not called at that step, and a test proves the AI module cannot reach the write path.
+
+### 5.5 Deployment view
+```mermaid
+flowchart LR
+  subgraph Site["Data-centre management network"]
+    EXP[Exporters: node · SNMP PDU · env · BMS] --> PROM[Prometheus]
+  end
+  subgraph Host["On-prem Docker/Kubernetes  or  AWS ECS Fargate"]
+    LB[Reverse proxy / ALB + CloudFront<br/>TLS · WAF] --> BE[Backend ×2]
+    BE --> PG[(PostgreSQL / RDS<br/>TLS · encrypted at rest)]
+    BE --> PROM
+    BE --> OTEL[OTel collector → Phoenix / Tempo]
+  end
+  OPS[Operator browser · SSO] --> LB
+  BE --> IDP[OIDC IdP]
+  BE -->|egress proxy| TKT[ServiceNow / Jira]
+  BE -. only if enabled .-> LLM[Model API]
+  BE -. denied by firewall .-> BMS[BMS / PDU control]
+  CI[GitHub Actions: CI · deploy via OIDC → ECR → migration → ECS → smoke] --> BE
+  TF[Terraform: VPC · ALB · ECS · RDS · ECR · CloudFront · state in S3 + DynamoDB] --> Host
+```
+
+### 5.6 Security view (STRIDE summary)
+| Threat | Control |
+|---|---|
+| Spoofing an operator | OIDC + PKCE; RS256 JWT validated against JWKS; no local accounts; dev auth refused in production |
+| Tampering with telemetry or the write path | Management-network isolation; snapshot schema validation; no import path from the AI module to the incident router (tested) |
+| Prompt injection | Operator text placed as data; rules in the system prompt; post-validation; golden case T8 |
+| Repudiation | Append-only timeline with actor; ticket work notes; traces with `request_id` |
+| Information disclosure | Key and bearer redacted in spans; identity hashed; TLS everywhere; secrets in a secret manager |
+| Denial of service | Per-user rate limit, monthly budget, input caps, WAF |
+| Elevation of privilege | `dc-shift-lead` required to approve; no actuation endpoint exists; firewall denies BMS/PDU |
+Full threat model, controls by layer, pipeline checks and monitoring: [`deploy/integration-security-architecture.md`](deploy/integration-security-architecture.md).
+
+**Authority in one sentence.** Any authenticated operator may open, note and resolve; approving a runbook is logged with the actor (role restriction planned for production); nobody, human or model, can actuate cooling or power, because no such endpoint exists.
 
 ## 6. Run it
 
