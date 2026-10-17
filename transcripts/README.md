@@ -1,17 +1,15 @@
 # Session transcripts
 
-The trainer's reference project ships four HTML transcripts (spec session, Codex AI-feature session, deploy session, eval session). This project was built in one continuous session with the coding harness; the transcript pages are:
+Two pages, kept in sync, both organised by the six course weekends (5 September – 10 October 2026):
 
-- **Turn-by-turn export (submission URL):** https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_turn_by_turn.html
-- **Session log by stage:** https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_session_log.html
+- **Turn-by-turn export (submission URL):** https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_turn_by_turn.html — architect messages verbatim, harness responses condensed, files produced.
+- **Session log by course weekend:** https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_session_log.html — the same content summarised: what the weekend teaches, what was asked, what was produced, takeaway.
 
-`dc-aiops_session_log.html` in this folder is a structured log of that session: each architect instruction, what the coding agent produced, what was reviewed, and which spec changed as a result. It is a derived record of the same work.
-
-Stage mapping to the trainer's files:
+Mapping to the trainer's transcript files:
 | Trainer file | This project |
 |---|---|
-| musafir_transcript.html (four specs, core app) | session-log stages 1–3 and 5 + `specs/` |
-| musafir_codex_transcript.html (AI feature) | session-log stage 5 / turn 5 (AI-spec, triage endpoint, Triage tab) + `specs_with_AI_feature/` |
-| musafir_eval_transcript.html | session-log stage 5 (observability spec/runbook, golden set, evals harness, Phoenix run) + `specs_with_AI_Evals/`, `evals/` |
-| musafir_deploy_part2.html | session-log stage 5 (Terraform, workflows, backup/restore, production rollout, integration and security architecture) + `deploy/` |
-| musafir-architecture.html | `dc-aiops-architecture.html` (published) |
+| musafir_transcript.html (four specs, core app) | Weekends 1–3 + `specs/` |
+| musafir_codex_transcript.html (AI feature) | Weekend 3 + `specs_with_AI_feature/` |
+| musafir_eval_transcript.html | Weekend 5 + `specs_with_AI_Evals/`, `evals/` |
+| musafir_deploy_part2.html | Weekend 4 + `deploy/` |
+| musafir-architecture.html | Weekend 6 + `dc-aiops-architecture.html`, `docs/architecture.md` |
