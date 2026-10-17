@@ -15,7 +15,7 @@
 | 8.3 | Post-validation and rack-id normalisation | `pytest -k normalise` green | Done |
 | 8.4 | Frontend Triage tab, draft form, confirm → `POST /incidents` | Manual: T1 note → confirm → incident appears in Incidents tab | Done |
 | 8.5 | Draft restoration, stale-reply guard, lost-save message | Manual per frontend-spec §5 additions | Done |
-| 9.1 | Tracing per observability-spec; Phoenix locally | `/healthz tracing: on`; one trace per call | Done |
+| 9.1 | Tracing per observability-spec; Phoenix locally | `/healthz tracing: on`; one trace per call | Done — verified against a running Phoenix 2026-10-17 (evals/results/phoenix-*) |
 | 9.2 | Golden set T1–T8 with approved expectations | `evals/golden/cases.json` reviewed by architect | Done |
 | 9.3 | Live run, open coding, review table | `evals/review-table.md` with ≥ 1 note per case | Done (8 cases, 1 live run) |
 | 9.4 | Codebook v1 | `evals/codebook.md` approved | Done |
