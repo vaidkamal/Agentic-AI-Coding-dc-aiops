@@ -1,5 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DC-North AIOps Design Walkthrough</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
 <style>
 /* Layout: a single reading column (~68ch) with a left-hand decision ledger; one accent only, severity colors reserved for the ops vocabulary */
@@ -73,14 +77,17 @@ li{margin:.3rem 0}
 .foot{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
 </style>
 
+</head>
+<body>
 <div class="wrap">
 <header class="hero">
   <h1>DC-North AIOps: design decisions and interview preparation</h1>
   <p class="lede">A web console for data-centre IT operations that turns 24 racks of raw telemetry into one correlated incident, a probable cause, and a runbook an operator approves in a single tap. Built the course way: four specs, a fifth AI spec, evaluation with a golden set, deployment with backup and restore, and architecture with decision records.</p>
   <div class="links">
-    <a href="https://claude.ai/artifact/AyzdTkLw8VKj4WkuS2oM36">Deployed console</a>
-    <a href="https://claude.ai/artifact/NVFAkQE43FVurft3HymLqt">Architecture (C4, request paths, failure table)</a>
-    <a href="https://claude.ai/code/session_01B6WBDCn3ZQcBy6jiC5uLRX">Session transcript</a>
+    <a href="https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/frontend/">Deployed console</a>
+    <a href="https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/dc-aiops-architecture.html">Architecture (C4, request paths, failure table)</a>
+    <a href="https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_session_log.html">Session transcript</a>
+    <a href="https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops">Source code on GitHub</a>
   </div>
   <nav class="toc" aria-label="Contents">
     Contents
@@ -217,3 +224,6 @@ transcripts/                  session log and link to the raw session</code></pr
 
 <p class="foot">Built October 2026 with an agentic coding harness under the IISc "Agentic AI Coding" method. Console, architecture page, repository and transcript are linked at the top.</p>
 </div>
+
+</body>
+</html>

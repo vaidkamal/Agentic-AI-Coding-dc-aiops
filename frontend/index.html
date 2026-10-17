@@ -392,7 +392,7 @@ function ingest(snap){
 }
 function connectFeed(){
   const url=new URLSearchParams(location.search).get('ws')||((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/telemetry');
-  if(location.protocol==='file:'||location.host.endsWith('claude.ai'))return; // published demo: simulator only
+  if(location.protocol==='file:'||/claude\.ai$|github\.io$/.test(location.host))return; // static demo: simulator only
   try{ws=new WebSocket(url);}catch(e){return;}
   ws.onmessage=e=>{try{ingest(JSON.parse(e.data));}catch(err){}};
   ws.onopen=()=>{toast('Live telemetry connected');setInterval(()=>ws.readyState===1&&ws.send('ping'),15000);};

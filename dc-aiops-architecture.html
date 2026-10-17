@@ -1,5 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DC-North AIOps Architecture</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400;600&display=swap">
 <style>
 /* Layout: reading column with full-width diagram bands; C4 zoom levels as sections; one accent, severity colours reserved */
@@ -51,13 +55,15 @@ code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size
 .foot{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
 </style>
 
+</head>
+<body>
 <div class="wrap">
 <header class="hero">
   <h1>DC-North AIOps: architecture</h1>
   <p class="lede">What each part does, where authoritative information lives, how one request becomes a result, who may change data, and what happens when a dependency is slow or wrong.</p>
   <div class="links">
-    <a href="https://claude.ai/artifact/AyzdTkLw8VKj4WkuS2oM36">Deployed console</a>
-    <a href="https://claude.ai/artifact/Gmm7Ud8Zc3EqDa4zV3xGMS">Design decisions and interview preparation</a>
+    <a href="https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/frontend/">Deployed console</a>
+    <a href="https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/docs/dc-aiops-design-walkthrough.html">Design decisions and interview preparation</a>
   </div>
 </header>
 
@@ -241,3 +247,6 @@ code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size
 
 <p class="foot">Built with a spec-driven workflow: specs/ → specs_with_AI_feature/ → specs_with_AI_Evals/. Decisions are recorded as ADRs in docs/design-decisions.md.</p>
 </div>
+
+</body>
+</html>
