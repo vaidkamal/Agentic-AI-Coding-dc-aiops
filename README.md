@@ -11,6 +11,19 @@ Final project for *Agentic AI Coding: From Specification to Deployment* (Prof. D
 | Design decisions and interview preparation | https://claude.ai/artifact/Gmm7Ud8Zc3EqDa4zV3xGMS |
 | Session transcript | https://claude.ai/code/session_01B6WBDCn3ZQcBy6jiC5uLRX |
 
+## Board submission
+
+| Form field | Answer |
+|---|---|
+| **Project title** | DC-North AIOps: Spec-Driven Data Centre Operations Console with Bounded AI Triage |
+| **Project submission URL** (deployed) | https://claude.ai/artifact/AyzdTkLw8VKj4WkuS2oM36 |
+| **Session transcript** | https://claude.ai/code/session_01B6WBDCn3ZQcBy6jiC5uLRX — structured log: [`transcripts/dc-aiops_session_log.html`](transcripts/dc-aiops_session_log.html) |
+| **Design decision walkthrough and interview preparation** | https://claude.ai/artifact/Gmm7Ud8Zc3EqDa4zV3xGMS — records: [`docs/design-decisions.md`](docs/design-decisions.md), [`docs/interview-questions.md`](docs/interview-questions.md) |
+| **Architecture** | https://claude.ai/artifact/NVFAkQE43FVurft3HymLqt — source: [`dc-aiops-architecture.html`](dc-aiops-architecture.html) |
+| **Code** | https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops |
+
+**Abstract.** DC-North AIOps is a web console for one data-centre hall (4 zones, 24 racks, 1,200 kW) that replaces 24 separate rack alarms with one correlated incident carrying a probable cause, evidence and a confidence number, and a runbook the operator approves in a single tap. It was built with an agentic coding harness following the course method end to end: four specifications (goal, frontend, backend, API contract) with an implementation plan whose phases each name their completion evidence; a fifth specification for a free-text AI triage feature in which a single bounded model call (20 s, 1,024 tokens, no retries, budget-limited) proposes an incident draft that only the operator's confirmation can save, with a test guaranteeing the AI module has no write path; an observability specification and runbook with OpenTelemetry traces to Phoenix; a golden set of eight cases chosen by dimension, deterministic checks, a judge rubric and a codebook; CI on every push, a deploy workflow (GitHub OIDC → ECR → migration task → ECS Fargate → smoke test), Terraform for the AWS stack, and backup-before-destroy with a restore proof script. `scripts/verify.sh` is the definition of done (ruff, 73 tests, mocked evaluation, no-write-path guard, CDN-host check), all green; three deliberate faults confirmed the checks can fail. Architecture is documented as C4 views with request paths, a testable failure table and an authority table; twelve ADRs and 25 interview questions record why each choice was made. Eleven spec-versus-code conflicts surfaced by the builders were resolved by amending the documents before the code.
+
 ---
 
 ## 1. The problem
