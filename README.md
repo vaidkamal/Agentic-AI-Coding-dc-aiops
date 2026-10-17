@@ -12,9 +12,31 @@ Final project for *Agentic AI Coding: From Specification to Deployment* (Prof. D
 | Architecture (C4, request paths, failure table) | https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/dc-aiops-architecture.html |
 | Source code | https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops |
 
-## 1. The problem
+## 1. The problem and the setting
 
-Hall 2 has 4 zones, 24 racks, 1,200 kW of design power. Operators watch inlet temperature, CPU, PDU power and host availability on separate screens. When a CRAC unit degrades, all six racks in its zone alarm at once; root cause takes hours because nobody correlates the alarms, and the "fix" is a page to facilities after the damage is done.
+**Context.** The console is built for a private, single-tenant data-centre hall: Hall 2, 4 zones, 24 racks, 1,200 kW of design power, owned and operated by one organisation. It is not a public-cloud region.
+
+**The problem.** Operators watch inlet temperature, CPU, PDU power and host availability on separate screens. When a CRAC unit degrades, all six racks in its zone alarm at once; root cause takes hours because nobody correlates the alarms, and the "fix" is a page to facilities after the damage is done.
+
+**Why a private data centre.**
+- The ops team sees raw rack-level alarms directly; a hyperscaler hides that layer behind its own tooling.
+- The same organisation owns the sensors, the CRAC and PDU units, the management network and the ticketing system, so the authority boundaries from the course (no write path from the model, no actuation, approval with a named operator) can be enforced end to end and verified by a firewall review.
+- A small team covers facilities and IT, so the blast radius of a wrong cooling or power action is the whole hall; the system must advise, never act.
+- Telemetry and incidents stay inside the organisation; the only optional external call is the bounded AI triage, switched off by leaving the key unset.
+- The site has change control, so the phased rollout (replay → shadow → one zone → full hall) can run under its own tickets with rollback by configuration.
+
+**Benefits for the site.**
+| Benefit | How |
+|---|---|
+| One incident per root cause instead of 24 alarms | Zone correlation on the hall's real topology (six racks per CRAC) |
+| A probable cause with a confidence number | Rule-based cause and evidence on every incident |
+| Fix approved in one tap, fully audited | Approval-gated runbooks; every step logged with the operator's name and mirrored as ticket work notes |
+| Capacity planned ahead | Days to the 80 % planning line from the same telemetry |
+| Faster triage on the night shift | Free-text note in English or Hinglish → structured draft; the model only proposes, the operator's confirm is the only write |
+| Thresholds are the site's own | ASHRAE A1 27 °C, 92 % CPU, 20-sample baseline, tuned on replay data before go-live |
+| Low cost, no lock-in | A container, a database, Prometheus; AI spend budget-capped |
+
+**Status.** Validated on simulated telemetry and fault injection; the phased production rollout (§12) and the four open items with their blockers (§11) are stated below.
 
 ## 2. What was built
 
