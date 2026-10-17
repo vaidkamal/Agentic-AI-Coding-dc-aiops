@@ -2,7 +2,8 @@
 
 The trainer's reference project ships four HTML transcripts (spec session, Codex AI-feature session, deploy session, eval session). This project was built in one continuous Claude session, so the primary transcript is the session itself:
 
-- **Session transcript (GitHub Pages):** https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_session_log.html
+- **Turn-by-turn export (submission URL):** https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_turn_by_turn.html
+- **Session log by stage:** https://vaidkamal.github.io/Agentic-AI-Coding-dc-aiops/transcripts/dc-aiops_session_log.html
 - Raw harness session (sign-in required): https://claude.ai/code/session_01B6WBDCn3ZQcBy6jiC5uLRX
 
 `dc-aiops_session_log.html` in this folder is a structured log of that session: each architect instruction, what the coding agent produced, what was reviewed, and which spec changed as a result. It is a derived record, not a raw export; the link above is the raw record.
