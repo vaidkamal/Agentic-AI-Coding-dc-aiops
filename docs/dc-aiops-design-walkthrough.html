@@ -118,7 +118,7 @@ specs/                        goal · frontend · backend · api-contract · imp
 specs_with_AI_feature/        + AI-spec.md (fifth spec); revision-2 sections appended to the four
 specs_with_AI_Evals/          + observability-spec · observability-runbook · ai-implementation-plan
 evals/                        golden/cases.json T1–T8 · run_cases.py (--mock / --live) · codebook · judge rubric · review table · baseline
-backend/                      FastAPI; adapters; auth; integrations; ai/ (triage, budget, ratelimit, tracing); tests/ (73)
+backend/                      FastAPI; adapters; auth; integrations; ai/ (triage, budget, ratelimit, tracing); tests/ (78)
 frontend/index.html           console, including the Triage tab
 scripts/verify.sh             definition of done: ruff · pytest · evals --mock · no-write-path grep · CDN hosts
 deploy/                       Terraform · backup/destroy/restore/demo-tunnel scripts · deployment brief · release runbook
@@ -188,7 +188,7 @@ transcripts/                  session log and link to the raw session</code></pr
     <tr><td>AI-1…AI-8 (shape, normalisation, classification, injection, bounds, budget, correction, no write path)</td><td><code>pytest tests/test_ai_triage.py</code> with frozen fixtures</td><td>33 passed; mutation on the write path turns it red</td></tr>
     <tr><td>OBS-1…OBS-3 (spans, redaction, tracing status)</td><td><code>pytest tests/test_tracing.py</code> with in-memory exporter</td><td>10 passed</td></tr>
     <tr><td>Golden set T1–T8</td><td><code>python evals/run_cases.py --mock</code></td><td>0 failures / 8 assessed (mocked; live baseline pending budget approval)</td></tr>
-    <tr><td>Definition of done</td><td><code>./scripts/verify.sh</code></td><td>GREEN: ruff, 73 tests, evals, no-write-path grep, CDN hosts</td></tr>
+    <tr><td>Definition of done</td><td><code>./scripts/verify.sh</code></td><td>GREEN: ruff, 78 tests, evals, no-write-path grep, CDN hosts</td></tr>
     <tr><td>Test the test</td><td>Three deliberate faults (docs/test-the-test.md)</td><td>Each turned a check red, then green on restore</td></tr>
     <tr><td>Deployment scaffold</td><td><code>bash -n</code>, YAML parse, <code>tofu fmt</code>, HCL reference check</td><td>Clean; <code>terraform validate</code> and apply pending an AWS account</td></tr>
   </tbody>

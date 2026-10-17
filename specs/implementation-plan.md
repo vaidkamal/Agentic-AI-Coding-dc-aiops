@@ -12,7 +12,7 @@
 | 5 | Backend release | CI lint+test → image pushed → migration task exit 0 → service stable → `/healthz` 200 on ALB. | Workflow written; run pending |
 | 6 | Hosted frontend | Console served over HTTPS (CloudFront); creates and resolves an incident against the hosted API. | Pending |
 | 7 | Backup and restoration | Same `INC-nnn` with original `opened` retrieved after snapshot → destroy → rebuild. | Scripts written; proof **blocked** until T16 (incidents persisted to RDS) |
-| 8 | AI triage feature (AI-spec.md) | Free-text note → structured draft → operator review → saved incident; 20 s / 1,024-token bounds enforced; 71+ tests green. | Done locally; see specs_with_AI_feature |
+| 8 | AI triage feature (AI-spec.md) | Free-text note → structured draft → operator review → saved incident; 20 s / 1,024-token bounds enforced; 78 tests green (incl. ticketing lifecycle). | Done locally; see specs_with_AI_feature |
 | 9 | Observability and evals | Phoenix traces for every model call; golden set T1–T8; deterministic checks + judge; baseline recorded. | Done locally; see specs_with_AI_Evals |
 
 Review before each phase: which reviewed requirement does this implement? what must already exist? what will we observe, and what remains unverified?

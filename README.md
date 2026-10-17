@@ -17,7 +17,7 @@ All pages are served by GitHub Pages from this repository (`Settings → Pages �
 
 ## Abstract
 
-DC-North AIOps is a web console for one data-centre hall (4 zones, 24 racks, 1,200 kW design power) that turns raw rack telemetry into one correlated incident per root cause, with a probable cause, evidence and a confidence number, and a runbook the operator approves in a single tap. It is the final project for "Agentic AI Coding: From Specification to Deployment" and was built with the course's method, with me as architect and the coding harness as contractor. Weekend 2: specification-driven development (spec → plan → implement → verify → iterate), the four control surfaces, CLAUDE.md, a permission file and scripts/verify.sh as the definition of done. Weekend 3: four reviewed specifications (goal, frontend, backend, API contract) and an implementation plan whose phases 0–9 each name their completion evidence; then a fifth specification, AI-spec.md, for a free-text incident triage feature designed as a minimal viable agent: one bounded model call (20 s, 1,024 tokens, no retries, rate- and budget-limited) that proposes a draft, while only the operator's confirmation writes; a test proves the AI module has no write path. Weekend 4: acceptance criteria mapped to checks (73 pytest tests, each criterion with a command), test-the-test with three deliberate faults, CI on every push, a deploy workflow (GitHub OIDC → ECR → migration task → ECS Fargate → smoke test), Terraform for the AWS stack, and backup-before-destroy with a restore-proof script. Weekend 5: an observability specification and runbook with OpenTelemetry traces demonstrated against a running Arize Phoenix, a golden set of eight cases chosen by dimension, deterministic checks with the course's verdict vocabulary, a codebook and a judge rubric. Weekend 6: C4 architecture with two request paths, a testable failure table and an authority table, twelve architectural decision records and 25 interview questions. Eleven spec-versus-code conflicts raised by the harness were resolved by amending the documents before the code. Open items are stated with their blockers: live model evaluation, cloud apply, database persistence, CRAC telemetry. Code, specifications and evidence: https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops
+DC-North AIOps is a web console for one data-centre hall (4 zones, 24 racks, 1,200 kW design power) that turns raw rack telemetry into one correlated incident per root cause, with a probable cause, evidence and a confidence number, and a runbook the operator approves in a single tap. It is the final project for "Agentic AI Coding: From Specification to Deployment" and was built with the course's method, with me as architect and the coding harness as contractor. Weekend 2: specification-driven development (spec → plan → implement → verify → iterate), the four control surfaces, CLAUDE.md, a permission file and scripts/verify.sh as the definition of done. Weekend 3: four reviewed specifications (goal, frontend, backend, API contract) and an implementation plan whose phases 0–9 each name their completion evidence; then a fifth specification, AI-spec.md, for a free-text incident triage feature designed as a minimal viable agent: one bounded model call (20 s, 1,024 tokens, no retries, rate- and budget-limited) that proposes a draft, while only the operator's confirmation writes; a test proves the AI module has no write path. Weekend 4: acceptance criteria mapped to checks (78 pytest tests, each criterion with a command), test-the-test with three deliberate faults, CI on every push, a deploy workflow (GitHub OIDC → ECR → migration task → ECS Fargate → smoke test), Terraform for the AWS stack, and backup-before-destroy with a restore-proof script. Weekend 5: an observability specification and runbook with OpenTelemetry traces demonstrated against a running Arize Phoenix, a golden set of eight cases chosen by dimension, deterministic checks with the course's verdict vocabulary, a codebook and a judge rubric. Weekend 6: C4 architecture with two request paths, a testable failure table and an authority table, twelve architectural decision records and 25 interview questions. Eleven spec-versus-code conflicts raised by the harness were resolved by amending the documents before the code. Open items are stated with their blockers: live model evaluation, cloud apply, database persistence, CRAC telemetry. Code, specifications and evidence: https://github.com/vaidkamal/Agentic-AI-Coding-dc-aiops
 
 ---
 
@@ -87,17 +87,40 @@ CLAUDE.md                     instructions the coding agent reads every session
 specs/                        goal · frontend · backend · api-contract · implementation-plan (phases 0–9)
 specs_with_AI_feature/        + AI-spec.md; revision-2 sections appended to the four specs
 specs_with_AI_Evals/          + observability-spec · observability-runbook · ai-implementation-plan
-backend/                      app.py · auth.py · adapters/ · integrations/ · ai/ · tests/ (73 tests)
+backend/                      app.py · auth.py · adapters/ · integrations/ · ai/ · tests/ (78 tests)
 frontend/index.html           the console
 evals/                        golden/cases.json · run_cases.py · codebook.md · judge_rubric.md · review-table.md · baseline.md
 scripts/verify.sh             definition of done
-deploy/                       terraform/ · scripts/ · deployment-brief.md · runbook-release.md · production-rollout.md
+deploy/                       terraform/ · scripts/ · deployment-brief.md · runbook-release.md · production-rollout.md · integration-security-architecture.md
 .github/workflows/            ci.yml · deploy.yml
 docs/                         architecture.md · design-decisions.md (12 ADRs) · interview-questions.md · OPEN-QUESTIONS.md · test-the-test.md
 transcripts/                  session log + link to the raw session
 dc-aiops-architecture.html    architecture page (GitHub Pages)
 index.html                    GitHub Pages landing page
 ```
+
+
+### 4.1 The specification set (SDD documents)
+Three snapshots, as in the course reference project: each stage keeps the previous documents and adds its own. Read in this order.
+
+| Stage | Document | What it holds |
+|---|---|---|
+| **Stage 1 · four specs** | [`specs/goal-spec.md`](specs/goal-spec.md) | Goal, users, use cases, boundaries, constraints, glossary, testable success criterion, ambiguities resolved, output files |
+| | [`specs/frontend-spec.md`](specs/frontend-spec.md) | Tech decisions with alternatives, design tokens, screens, flows, observable interface behaviour |
+| | [`specs/backend-spec.md`](specs/backend-spec.md) | Responsibilities, data model, rules the server enforces, auth, secrets, deployment and recovery |
+| | [`specs/api-contract-spec.md`](specs/api-contract-spec.md) | Product decisions → contract, schemas, endpoints, examples, what the contract does not prescribe |
+| | [`specs/implementation-plan.md`](specs/implementation-plan.md) | Phases 0–9, each with completion evidence and dated status |
+| **Stage 2 · + AI feature** | [`specs_with_AI_feature/AI-spec.md`](specs_with_AI_feature/AI-spec.md) | Fifth spec: scope, languages, interpretation rules with contrasting examples, request/response, confirmation and corrections, late replies, failure and usage limits, AI-1…AI-8 with commands, how it changes the other four |
+| | [`goal`](specs_with_AI_feature/goal-spec.md) · [`frontend`](specs_with_AI_feature/frontend-spec.md) · [`backend`](specs_with_AI_feature/backend-spec.md) · [`api-contract`](specs_with_AI_feature/api-contract-spec.md) | The four specs with a "Revision 2" section each |
+| **Stage 3 · + observability and evals** | [`specs_with_AI_Evals/observability-spec.md`](specs_with_AI_Evals/observability-spec.md) | Spans and attributes, collector, redaction, versions, human annotation fields, OBS-1…OBS-3 |
+| | [`specs_with_AI_Evals/observability-runbook.md`](specs_with_AI_Evals/observability-runbook.md) | Phoenix setup, review material, open and axial coding prompts, checks, when they run, hill-climbing |
+| | [`specs_with_AI_Evals/ai-implementation-plan.md`](specs_with_AI_Evals/ai-implementation-plan.md) | Flowchart decision (one model call, no agent), phases 8.1–9.8 with evidence |
+| | [`goal`](specs_with_AI_Evals/goal-spec.md) · [`frontend`](specs_with_AI_Evals/frontend-spec.md) · [`backend`](specs_with_AI_Evals/backend-spec.md) · [`api-contract`](specs_with_AI_Evals/api-contract-spec.md) · [`AI-spec`](specs_with_AI_Evals/AI-spec.md) | Current versions; the ones `CLAUDE.md` points the coding agent to |
+| **Agent instructions** | [`CLAUDE.md`](CLAUDE.md) · [`.claude/settings.json`](.claude/settings.json) | What the agent reads every session; what it may run and may not edit |
+| **Decisions and audits** | [`docs/design-decisions.md`](docs/design-decisions.md) · [`docs/OPEN-QUESTIONS.md`](docs/OPEN-QUESTIONS.md) · [`docs/test-the-test.md`](docs/test-the-test.md) · [`docs/interview-questions.md`](docs/interview-questions.md) | 12 ADRs; the 11 spec-vs-code conflicts and the decision on each; the three deliberate faults; 25 questions |
+| **Architecture and operations** | [`docs/architecture.md`](docs/architecture.md) · [`deploy/deployment-brief.md`](deploy/deployment-brief.md) · [`deploy/runbook-release.md`](deploy/runbook-release.md) · [`deploy/production-rollout.md`](deploy/production-rollout.md) · [`deploy/integration-security-architecture.md`](deploy/integration-security-architecture.md) | C4 and request paths; services, cost and recovery; release steps; phased rollout; integrations, threat model, checks, monitoring |
+| **Evaluation** | [`evals/codebook.md`](evals/codebook.md) · [`evals/judge_rubric.md`](evals/judge_rubric.md) · [`evals/review-table.md`](evals/review-table.md) · [`evals/baseline.md`](evals/baseline.md) | Failure categories; judge prompt; open-coding table; mocked and Phoenix-run baselines |
+| **Transcripts** | [`transcripts/README.md`](transcripts/README.md) | Turn-by-turn export, stage log, and the mapping to the trainer's transcript files |
 
 ## 5. Architecture
 
@@ -130,7 +153,7 @@ Authority: any authenticated operator may open, note and resolve; approving a ru
 ```bash
 cp .env.example .env            # simulator, dev auth, no ticketing, no AI key needed for the console
 docker compose up --build       # http://localhost:8080
-./scripts/verify.sh             # ruff · 73 tests · evals --mock · no-write-path grep · CDN hosts → GREEN
+./scripts/verify.sh             # ruff · 78 tests · evals --mock · no-write-path grep · CDN hosts → GREEN
 ```
 Try it: Inject fault → "CRAC unit failure (Zone C)" → Incidents tab shows one incident → Approve runbook → watch it resolve. Then open Triage and type a symptom.
 
@@ -261,6 +284,7 @@ C4 context, containers and components; the two request paths (telemetry → runb
 |---|---|---|
 | Goal-spec success criterion | Inject CRAC failure; walk the journey | One Zone C incident, 91 % confidence, resolved after 5 normal samples |
 | API contract | `pytest tests/test_api.py` | 9 passed (201/409/404/409-on-resolved/401, enums → 422, deprecated alias) |
+| Ticketing integration (ServiceNow, Jira) | `pytest tests/test_ticketing.py` with stubbed integrations | 5 passed: create → work note (with actor) → close; a ticketing failure never blocks the operator and is written to the timeline |
 | AI-1…AI-8 | `pytest tests/test_ai_triage.py` (frozen fixtures) | 33 passed; write-path mutation turns it red |
 | OBS-1…OBS-3 | `pytest tests/test_tracing.py` | 10 passed |
 | Golden set T1–T8 | `python evals/run_cases.py --mock` | 0 failures / 8 assessed (mocked) |
@@ -370,6 +394,17 @@ P4 is the first phase in which the system pages people and runbook steps call re
 
 Rollback from P4: `TICKETING=none`, runbooks disabled, console read-only; nothing in the hall changes because nothing was ever actuated.
 
+### 12.7 Integrations, security and monitoring in production
+Full document: [`deploy/integration-security-architecture.md`](deploy/integration-security-architecture.md). In brief:
+
+- **When it goes live.** Operationally, at the start of P3, the first time a ticket reaches another team. P1–P2 only observe.
+- **How each third party is connected.** Prometheus: backend pulls PromQL over the management network, read-only. Identity provider: OIDC with PKCE in the browser, RS256 JWT validated by the backend against the IdP's JWKS. ServiceNow (Table API) and Jira Cloud (REST v3): backend pushes over HTTPS through the egress proxy with a least-privilege service account from the secret manager; 10 s timeout; a failure is written to the incident timeline and never blocks the operator. Model API (optional): server-side key, sanitised text only, no telemetry or names, disabled by unsetting the key. BMS/PDU control: no credentials exist and the firewall denies the path.
+- **Database.** PostgreSQL with TLS and encryption at rest; tables `incidents`, `incident_events` (append-only), `runbook_runs`, `ai_spend`; three roles (app, migrate, read-only); daily backups with PITR, manual snapshot before destructive changes, six-monthly restore drill; operator identity stored as a hash.
+- **Threat model and controls.** STRIDE table covering spoofing (OIDC, no local accounts), tampering (management-network isolation, schema validation, no write path from the model), prompt injection (text as data, post-validation, golden case T8), repudiation (append-only events with actor), disclosure (redaction, hashing, TLS, secret manager), denial of service (rate limit, budget, input caps, WAF), privilege escalation (RBAC for approvals, no actuation endpoint), supply chain (pinned, scanned, signed, OIDC deploy).
+- **Security checks in the pipeline.** SAST (Bandit/Semgrep/CodeQL), dependency audit (pip-audit/Dependabot), secret scanning (gitleaks), image scan (Trivy), IaC scan (tfsec/Checkov), SBOM and signing (Syft/Cosign), DAST on staging (ZAP), prompt-injection regression tests, per-role authorization tests, external penetration test before P4, configuration review before P3, restore drill.
+- **Monitoring the monitor.** Liveness via `/healthz`; feed freshness and racks reporting per zone; incident rates; ticket-sync failures; database health and backup age; AI call rates, latency, spend and weekly quality sampling in Phoenix; structured logs in Loki/ELK; security events in a SIEM; nightly Terraform drift; cost; certificate and secret expiry. Alertmanager pages the owner independently of the console.
+- **Incident response for the system itself and a compliance mapping** for the site's auditors close the document.
+
 ## 13. Tools
 
 | Tool | Role in the project | Where |
@@ -378,7 +413,7 @@ Rollback from P4: `TICKETING=none`, runbooks disabled, console read-only; nothin
 | **Anthropic API** | The runtime model inside the product: one bounded call per triage note that returns a structured draft. Independent of the harness above; a coding agent can build a product with no runtime AI at all. | `backend/ai/triage.py`, `specs_with_AI_feature/AI-spec.md` |
 | **FastAPI** | The backend: WebSocket telemetry feed, incident API, OIDC auth, ticket sync, triage endpoint. | `backend/app.py` |
 | **Chart.js** | Time-series charts in the console: rack inlet/CPU, site load/PUE, capacity forecast. | `frontend/index.html` |
-| **pytest** | 73 tests: API contract, AI-1…AI-8, OBS-1…OBS-3, the no-write-path guard. | `backend/tests/` |
+| **pytest** | 78 tests: API contract, ticketing lifecycle, AI-1…AI-8, OBS-1…OBS-3, the no-write-path guard. | `backend/tests/` |
 | **ruff** | Linter; first step of the definition of done. | `scripts/verify.sh`, `ruff.toml` |
 | **OpenTelemetry + Arize Phoenix** | Observability: one trace per model call with named spans; Phoenix is the local UI for reading traces and adding human labels during evaluation. | `backend/ai/tracing.py`, `specs_with_AI_Evals/observability-spec.md`, `observability-runbook.md` |
 | **Terraform** | AWS infrastructure as code; remote state in S3 + DynamoDB; snapshot before destroy. | `deploy/terraform/` |
