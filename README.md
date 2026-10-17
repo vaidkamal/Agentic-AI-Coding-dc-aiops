@@ -119,9 +119,32 @@ Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, 
 | OBS-1…OBS-3 | `pytest tests/test_tracing.py` | 10 passed |
 | Golden set T1–T8 | `python evals/run_cases.py --mock` | 0 failures / 8 assessed (mocked) |
 | Test the test | three deliberate faults | each went red, then green on restore |
+| OBS-1…OBS-3 against a running Phoenix | fake model through the real endpoint, 8 cases + 1 confirm | 8 traces with the specified spans; `incident.save` linked by request id; no secrets exported (§8) |
 | Deployment scaffold | `bash -n`, YAML parse, `tofu fmt`, HCL reference check | clean; `terraform validate` and apply pending an AWS account |
 
-## 8. What I learned
+## 8. Observability and evaluation: designed, integrated, demonstrated
+
+### 8.1 Observability (what the system records about itself)
+Specified in [`specs_with_AI_Evals/observability-spec.md`](specs_with_AI_Evals/observability-spec.md), implemented in `backend/ai/tracing.py`, exercised by 10 tests, and **demonstrated against a running Arize Phoenix** on 2026-10-17.
+
+Every `POST /api/v1/ai/triage` produces one OpenTelemetry trace: `http POST /api/v1/ai/triage` → `budget.reserve` → `anthropic.triage` (model, `prompt_version`, `rules_version`, sanitised input, output draft, token usage) → `triage.validate` (id normalisation, rejection reason) → `budget.settle`. When the operator confirms, a separate `incident.save` trace is linked by `request_id` and records which fields the operator changed. API key and bearer are redacted; operator identity is hashed. With no collector configured, tracing is a no-op and `/healthz` reports `tracing: off` so the gap stays visible.
+
+![Phoenix trace of one triage call](evals/results/phoenix-trace-detail-20261017.png)
+
+Evidence from the Phoenix run (`evals/results/`): 8 traces with the spans above; one `incident.save` span with `incident_id=INC-501`, `draft_request_id` = T1's request id, `fields_changed_by_operator=["probable_cause"]`; no secret in any exported attribute (`phoenix-traces-mockmodel-20261017.json`). The run also kept 16 earlier traces whose `error` attribute (`TypeError …`) exposed a mis-built fake client in the launcher while the endpoint correctly answered 503, which is the observability design finding a fault in its own builder.
+
+### 8.2 Evaluation (how the AI feature is judged)
+The course loop: analyse traces → write one note per observation → group into a codebook → turn categories into checks → improve one change at a time. Artefacts: golden set [`evals/golden/cases.json`](evals/golden/cases.json) (T1–T8 chosen by dimension: zone vs rack, typo ids, vague, Hinglish correction, pasted log, below threshold, injection), runner [`evals/run_cases.py`](evals/run_cases.py) (`--mock` free in CI; `--live` prints the estimate and asks for approval), [`codebook.md`](evals/codebook.md) v1, [`judge_rubric.md`](evals/judge_rubric.md) for the two semantic criteria, [`review-table.md`](evals/review-table.md), [`baseline.md`](evals/baseline.md). Verdict vocabulary: pass / fail / unable_to_assess / not_applicable / budget_blocked.
+
+| Run | Model | Result | Establishes |
+|---|---|---|---|
+| `run_cases.py --mock` (CI, every push) | canned outputs | 8/8 pass | Checking logic, invariants, bounds, budget wrapper, no-write-path guard |
+| Endpoint run through Phoenix (2026-10-17) | fake client injected into the real backend | 8/8 pass, 9 traces exported | Contract, tracing and the confirm linkage end to end over HTTP |
+| `run_cases.py --live` | real model | **pending** (≈ US$0.06) | The model's behaviour; then open/axial coding on real traces, one hill-climb round, model/effort comparison |
+
+What the fake-model runs do not establish is anything about the real model; the live baseline is item 2 in §10.
+
+## 9. What I learned
 
 1. **The spec is the contract, and it must be a file.** My first package shipped with the spec living inside a tab of the app. The next engineer could not open it. Nothing was "spec-driven" until `specs/` existed.
 2. **A criterion is a sentence with a command attached.** "Works on mobile" is a hope; "no horizontal scroll at 360 px" and `pytest -k bounds` are criteria. Every acceptance criterion in `AI-spec.md` names its command.
@@ -134,7 +157,7 @@ Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, 
 9. **Commit after every turn.** The cloud workspace was recycled between sessions and the code had to be recreated from the session record. Git is the memory the harness does not have.
 10. **Keep ownership.** I can explain the request path, who may change data, what happens when the provider is slow or wrong, and why each choice was made. That, not the line count, is what the agentic workflow delivers.
 
-## 9. What remains
+## 10. What remains
 
 Everything above this line has evidence; everything below has a plan and a named blocker.
 
@@ -147,7 +170,7 @@ Everything above this line has evidence; everything below has a plan and a named
 
 Items 1 and 4 need only code; items 2 and 3 need the API key and the AWS account.
 
-## 10. Production rollout: from POC to a live hall
+## 11. Production rollout: from POC to a live hall
 
 Full guide: [`deploy/production-rollout.md`](deploy/production-rollout.md). The POC proves the design and the method; the steps below are how to earn the evidence in a real data centre, one bounded step at a time. The rule throughout: **observe and advise before paging anyone; never actuate equipment.**
 
@@ -186,7 +209,7 @@ Rollback at any phase: `TICKETING=none`, runbooks off, console read-only. Nothin
 ### 10.6 Go-live checklist (P4)
 T16 live and one restore drill passed · detector server-side · RBAC verified with a test user · ticketing verified against the site instance · CRAC telemetry wired or deferred with the lower confidence documented · thresholds tuned on replay data · runbook steps mapped to real notifications, no actuation · security review signed · owner named · specs updated for every decision.
 
-## 11. Tools
+## 12. Tools
 
 | Tool | Role in the project | Where |
 |---|---|---|
