@@ -60,7 +60,7 @@ backend/                      app.py · auth.py · adapters/ · integrations/ ·
 frontend/index.html           the console
 evals/                        golden/cases.json · run_cases.py · codebook.md · judge_rubric.md · review-table.md · baseline.md
 scripts/verify.sh             definition of done
-deploy/                       terraform/ · scripts/ · deployment-brief.md · runbook-release.md
+deploy/                       terraform/ · scripts/ · deployment-brief.md · runbook-release.md · production-rollout.md
 .github/workflows/            ci.yml · deploy.yml
 docs/                         design-decisions.md (12 ADRs) · interview-questions.md · OPEN-QUESTIONS.md · test-the-test.md
 transcripts/                  session log + link to the raw session
@@ -80,6 +80,8 @@ Try it: Inject fault → "CRAC unit failure (Zone C)" → Incidents tab shows on
 AI triage needs `ANTHROPIC_API_KEY`; evals: `python evals/run_cases.py --mock` (free) or `--live` (asks for budget approval first). Observability: `pip install arize-phoenix && phoenix serve`, set `PHOENIX_COLLECTOR_ENDPOINT`.
 
 Deployment: `deploy/deployment-brief.md` (services, permissions, cost drivers, what survives teardown) and `deploy/runbook-release.md`.
+
+Taking it to a real hall: `deploy/production-rollout.md` (readiness assessment, what the DC must provide, configuration, on-prem and AWS profiles, five-phase rollout with exit criteria, go-live checklist).
 
 ## 6. Verification evidence
 
