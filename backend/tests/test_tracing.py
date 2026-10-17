@@ -88,7 +88,12 @@ def test_spans_incident_save_is_a_separate_trace_linked_by_request_id(client, ex
     assert s.attributes["incident_id"] == "INC-101"
     assert s.attributes["draft_request_id"] == "req_abc"
     assert list(s.attributes["fields_changed_by_operator"]) == ["sev", "summary"]
-    assert s.parent is None
+    # observability-spec §1: a *separate trace* from the triage call, linked by request_id.
+    # It may sit under an HTTP server span when ASGI auto-instrumentation is installed
+    # (e.g. alongside Phoenix), so assert trace separation, not root-ness.
+    triage_traces = {sp.context.trace_id for sp in exporter.get_finished_spans()
+                     if sp.name == tracing.SPAN_ANTHROPIC_TRIAGE}
+    assert s.context.trace_id not in triage_traces
 
 
 SECRET = "sk-ant-api03-SUPERSECRETVALUE1234567890"
